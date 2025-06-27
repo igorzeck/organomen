@@ -1,5 +1,7 @@
-import entities
+import entities as ent
+import os.path
 #
 #  File opening
 #
-# File reading done Left -> Right Up -> Bottom
+main_chain = ent.open_chain_file(os.path.join("Chains", "simple.chain"))
+print(main_chain)
