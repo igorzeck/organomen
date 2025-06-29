@@ -1,4 +1,5 @@
 # TODO: Change representation to be individual know atoms (include their valence?)
+# TODO: Adicionar algum objeto que represente coordenadas 2D para simplficar os cálculos
 # 
 # Imports
 # 
@@ -15,20 +16,17 @@ el_nome = {
 }
 
 # Connections directions
-# TODO: Tirar essses enums...
-Cd = Enum("Cd", [
-    "NORTHWEST",
-    "NORTH",
-    "NORTHEAST",
-    "WEST",
-    "EAST",
-    "SOUTHWEST",
-    "SOUTH",
-    "SOUTHEAST",
-])
+NORTHWEST = 0
+NORTH = 1
+NORTHEAST = 2
+WEST = 3
+EAST = 4
+SOUTHWEST = 5
+SOUTH = 6
+SOUTHEAST = 6
 
 # Coordinates associated with each connection
-Cd_val = [
+cd_offsets = [
     (-1, -1),
     (0, -1),
     (1, -1),
@@ -56,25 +54,34 @@ class Conection:
         id_ent: Entity id to where the connection points to
         dir: Cardinal direction of the connection
     """
-    def __init__(self, type: int, id_el: ConType, dir: Cd):
-        self.tipo = type
-        self.id_el = id_el
+    def __init__(self, type: int, id_to: ConType, dir: int):
+        self.type = type
+        # Id within the context of the matrix where it came from
+        self.id_to = id_to
         self.dir = dir
-"""
-Generalized chemical entity representation
-"""
+    #
+    # Representation
+    #
+    def __str__(self):
+        return f"Conection(Type: {self.type} To: {self.id_to} Dir: {self.dir})"
+    def __repr__(self):
+        return self.__str__()
+
 class Entity:
     id = 0
-    """
-    Attributes
-        z: Atomic Number
-        *conexs: Connections tuple
-    """
-    def __init__(self, z:int, *conexs: tuple[Conection]):
+    def __init__(self, z:int, conexs: tuple[Conection]):
+        """
+        Generalized chemical entity representation
+
+        Attributes
+            z: Atomic Number
+            *conexs: Connections tuple
+        """
         #
         # Identification
         #
-        self.id = id
+        # ID within the context of the originating matrix
+        self.id = Entity.id
         Entity.id += 1
 
         self.conexs = conexs
@@ -82,24 +89,34 @@ class Entity:
         # Chemistry
         #
         self.z = z  # Atomic Number
+    #
+    # Representation
+    #
+    def __str__(self):
+        return f"Entity(\n\tId: {self.id}\n\tZ: {self.z},\n\tConnections: {self.conexs}\n)"
+    def __repr__(self):
+        return self.__str__()
+
 
 """
 Representation of a organic chain
 """
 class Chain:
     id = 0
-    def __init__(self, l_ids: list[int], name=""):
+    def __init__(self, l_ents: list[Entity], chain_mat: str, name=""):
         #
         # Identification
         #
-        self.id = id
-        Entity.id += 1
+        self.id = Chain.id
+        Chain.id += 1
         
         if not name:
             self.name = f"Chain_{self.id}"
 
+        self.chain_mat = chain_mat
+
         # Elements
-        self.els = l_ids
+        self.els = l_ents
 
     # Assessors
     def __getitem__(self, item):
@@ -109,12 +126,23 @@ class Chain:
     # Representations
     #
     def scheme_chain(self):
-        return "Chain"
-
+        scheme_str = ""
+        for l in self.chain_mat:
+            for el in l:
+                if isinstance(el, int):
+                    if el == 0:
+                        scheme_str += "  "
+                    else:
+                        scheme_str += f" c{el}"
+                else:
+                    scheme_str += f" {el[1]}"
+            scheme_str += "\n"
+        return scheme_str
     def __str__(self):
         return self.scheme_chain()
     def __repr__(self):
-        return self.scheme_chain()
+        header = f"Chain(Name: {self.name}, Id: {self.id})"
+        return header
 
 
 #
@@ -126,10 +154,10 @@ Returns the a chain object.
 """
 def open_chain_file(file_name: str) -> Chain:
     els = []
+    lines_mat = []
     with open(file_name, "r") as f:
         # Matrix representation of the file
         lines = [line.split() for line in f.readlines()]
-        lines_mat = []
 
         # Gives ids for the representations
         curr_id = 0
@@ -147,62 +175,54 @@ def open_chain_file(file_name: str) -> Chain:
             for i_h, el in enumerate(l):
                 if isinstance(el, tuple):
                     cardc = _look_around(lines_mat, i_l, i_h)
-                    
-                    # Instantiate connections object
-                    for c in cardc:
-                        pass
+
                     # Instantiate entity object
-                    # ent = Entity()
+                    ent = Entity(el, cardc)
+                    print(ent)
                     
-                    els.append(el)
-
-
-    return Chain(els)
+                    els.append(ent)
+    return Chain(els, lines_mat)
 
 
 
 """
 Looks "around" - i.e. all 8 directions - a specifc char inside a matrix.
 """
-def _look_around(matrix: list[list], pivot_v: int, pivot_h: int):
+def _look_around(matrix: list[list], *pivot_coor: tuple[int]):
     # Cardinal directions surrounding pivot
-    print(f"Looking around {(pivot_h, pivot_v)}")
+    print(f"Looking around {(pivot_coor)}")
     card_dir = []
-    n = len(matrix)
+    for curr_cd_off in cd_offsets:
+        # Next target coordinates
+        nxt_coor = (pivot_coor[0] + curr_cd_off[0],
+                    pivot_coor[1] + curr_cd_off[1])
+        # Checks if the next cell is within the matrix bounds
+        if _is_out(nxt_coor, len(matrix), len(matrix[0])):
+            card_dir.append(0)
+            continue
+        
+        el = matrix[nxt_coor[0]][nxt_coor[1]]
 
-    curr_cd = Cd.NORTHWEST
-    i_h_min = max(0, pivot_h - 1)
-    i_v_min = max(0, pivot_v - 1)
+        if el == 0:
+            card_dir.append(0)
+        else:
+            #
+            # Appends a connection element
+            #
+            # Searches where the connection leads to:
+            nxt_nxt_coor = (pivot_coor[0] + curr_cd_off[0] * 2,
+                    pivot_coor[1] + curr_cd_off[1] * 2)
 
-    i_h = i_h_min
-    i_v = i_v_min
-    # TODO: Rodar todas as 8 células para poder contar corretamente as direções
-    for l in matrix[max(0, pivot_v - 1):min(n, pivot_v + 2)]:
-        for el in l[max(0, pivot_h - 1):min(n, pivot_h + 2)]:
-            # Ignores pivot
-            if i_v != pivot_v or i_h != pivot_h:
-                print(f"{curr_cd.name} - coor {(i_h, i_v)} [{el}]")
-                if el == 0:
-                    card_dir.append(0)
-                else:
-                    #
-                    # Appends a connection element
-                    #
-                    # Searches where the connection leads to:
-                    next_h_inc = Cd_val[curr_cd.value - 1][0]
-                    next_v_inc = Cd_val[curr_cd.value - 1][1]
-                    print((next_h_inc + i_h, next_v_inc + i_v))
-
-                    next_el = matrix[next_h_inc + i_h][next_v_inc + i_v]
-                    conx = Conection(ConType.SIMPLE, int(next_el[0]),Cd(curr_cd.value - 1))
-                    
-                    card_dir.append(conx)
-                # Isso é bem feio...
-                if curr_cd.value + 1 < 9:
-                    curr_cd = Cd(curr_cd.value + 1)
+            nxt_nxt_el = matrix[nxt_nxt_coor[0]][nxt_nxt_coor[1]]
+            conx = Conection(ConType.SIMPLE, nxt_nxt_el[0],curr_cd_off)
             
-            i_h += 1
-        i_h = i_h_min
-        i_v += 1
-    print("Cardinal:", card_dir)
-    return card_dir
+            card_dir.append(conx)
+
+    # print("Cardinal:", card_dir)
+    return tuple(card_dir)
+
+# Verifies if coordinate is outisde a matrix bounding box
+def _is_out(coor: tuple[int], height, length) -> bool:
+    # Checks if is beyond bouding box or before bounding box
+    return ((coor[0] >= length or coor[1] >= height)\
+        or (coor[0] < 0 or coor[1] < 0))
