@@ -4,6 +4,7 @@
 # Imports
 # 
 from enum import Enum
+import numpy as np
 #
 # Classes and objects that represent chemical entities
 #
@@ -23,7 +24,7 @@ WEST = 3
 EAST = 4
 SOUTHWEST = 5
 SOUTH = 6
-SOUTHEAST = 6
+SOUTHEAST = 7
 
 # Coordinates associated with each connection
 cd_offsets = [
@@ -121,12 +122,47 @@ class Chain:
     # Assessors
     def __getitem__(self, item):
         return self.els[item]
-    
     #
     # Representations
     #
+    def parse(self, el_ant: Entity, dir_ant: int):
+        # Starts by yield current recursion element
+        yield el_ant
+        el_atual = None
+        tam_conexs = len(el_ant.conexs)
+        # If it is equal to the previouse element
+        # then that means that it come back to the start!
+        while tam_conexs > 1 or el_atual != el_ant:
+            for cd_i, _ in enumerate(cd_offsets):
+                    curr_con = el_ant.conexs[cd_i] 
+                    if curr_con != 0:
+                        # Direction that it should ignore
+                        # It's the one diametrically opposite to the anterior
+                        if dir_ant != -1:
+                            if abs(cd_i - dir_ant) == 4:
+                                continue
+                        if len(el_ant.conexs) > 2:
+                            # Recursion
+                            pass
+                            # self.parse(el_ant, )
+                        else:
+                            # Iteration
+                            for cd_i, _ in enumerate(cd_offsets):
+                                curr_con = el_ant.conexs[cd_i] 
+                                if curr_con != 0:
+                                    # Direction that it should ignore
+                                    # It's the one diametrically opposite to the anterior
+                                    if abs(cd_i - dir_ant) == 4:
+                                        continue
+                                    el_atual = self[curr_con.id_to]
+                                    dir_ant = cd_i
+                                    # Yields element
+                                    yield el_atual
+        
     def scheme_chain(self):
         scheme_str = ""
+        for el in self.parse(self[0],-1):
+            print(el)
         for l in self.chain_mat:
             for el in l:
                 if isinstance(el, int):
@@ -137,7 +173,9 @@ class Chain:
                 else:
                     scheme_str += f" {el[1]}"
             scheme_str += "\n"
+        # Following along the trail and registring coordinates
         return scheme_str
+
     def __str__(self):
         return self.scheme_chain()
     def __repr__(self):
@@ -220,6 +258,7 @@ def _look_around(matrix: list[list], *pivot_coor: tuple[int]):
 
     # print("Cardinal:", card_dir)
     return tuple(card_dir)
+
 
 # Verifies if coordinate is outisde a matrix bounding box
 def _is_out(coor: tuple[int], height, length) -> bool:
