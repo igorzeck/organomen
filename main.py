@@ -13,6 +13,7 @@
 # TODO: Make part division for subnaming
 # TODO: make unique hold only unique paths
 # TODO: Chain object can be classified as it is read
+# TODO: Organize in different files and make the integration with Chain class better
 # -- Imports --
 from  copy import deepcopy
 
@@ -45,6 +46,63 @@ class Pos:
         return (self.row == value.row and self.col == value.col)
 
 
+class Chain:
+    def __init__(self, field: list):
+        """
+        Paths are represented by an List of integer IDs
+        field: 2D flat representation of the charbon chain
+        """
+        # - Field -
+        self.field = field
+        self.n_row = len(self.field)
+        self.n_col = len(self.field[0])
+
+        self.id_dict: dict[Pos] = self._make_id_dict()
+        # List all of paths
+        self.paths = []
+        # List of indexes for the main paths (name-definer)
+        self.main_path = []
+
+        # - Chemical properties -
+        self.name = ""
+        self.func_name = ""
+    
+    def _make_id_dict(self):
+        pos_dict = {}
+        id_count = 1
+        for row in range(self.n_row):
+            for col in range(self.n_col):
+                if not self.field[row][col].isnumeric():
+                    pos_dict[id_count] = Pos(row, col)
+                    id_count += 1
+        return pos_dict
+    
+    # - Element-wise -
+    def add_path(self, path):
+        """
+        Adds a new path if it is unique
+        """
+        if not self.paths:
+            self.paths.append(path)
+            return
+        for i_path in self.paths:
+            if (len(i_path) == len(path)) and (sorted(i_path) != sorted(path)):
+                self.paths.append(path)
+                break
+    
+    # - Visual -
+    def print_ids(self):
+        mock_field = [[0 for _ in range(self.n_col)] for __ in range(self.n_row)]
+        for i in self.id_dict:
+            pos = self.id_dict[i]
+            mock_field[pos.row][pos.col] = i
+        print_field(mock_field)
+    def __str__(self):
+        summary = f"Name: {self.name}"
+        return summary
+
+    def __repr__(self):
+        return self.__str__()
 # - Constants -
 # Connections directions
 NORTHWEST = -4
@@ -82,7 +140,7 @@ def abrir_arq_chain(nome_arq):
 
 
 # - Visual -
-def print_field(field: list[list], highlights: tuple = (Pos(-1, -1)), zeros_repr='.'):
+def print_field(field: list[list], highlights: tuple = [Pos(-1, -1)], zeros_repr='.'):
     """
     Prints the 2D matrix representation
 
@@ -92,6 +150,9 @@ def print_field(field: list[list], highlights: tuple = (Pos(-1, -1)), zeros_repr
     print("")
     for i_row, row in enumerate(field):
         for i_col, el in enumerate(row):
+            # Converts el if needed
+            if isinstance(el, int):
+                el = str(el)
             curr_pos = Pos(i_row, i_col)
             if el == '0':
                 p_el = zeros_repr.ljust(3)
@@ -111,28 +172,34 @@ def print_field(field: list[list], highlights: tuple = (Pos(-1, -1)), zeros_repr
 
 
 # - Pathfinder -
-def _edge_c(field):
+# TODO: Change to only detect Carbon to Carbon connections on chain end!
+def _edge_c(field, ids):
     """
     Gives the postion of the of an edge Carbon
+    field: Flat representation of the chain
+    ids: Dictionary with carbon id and its postion
     """
-    curr_pos = None
+    curr_id = None
     edgeless = True
-    for i_row, row in enumerate(field):
-        for i_col, el in enumerate(row):
-            if el == 'C':
-                curr_pos = Pos(i_row, i_col)
-                if len(_scout(field, curr_pos)) == 1:
-                    if edgeless:
-                        edgeless = False
-                    yield curr_pos
-    if curr_pos and edgeless:
+    for id in ids:
+        pos = ids[id]
+        el = field[pos.row][pos.col]
+        if el == 'C':
+            curr_id = id
+            if len(_scout(field, ids, id)) == 1:
+                if edgeless:
+                    edgeless = False
+                yield curr_id
+    if curr_id and edgeless:
         # If finds no edge, return last curr_pos
-        yield curr_pos
+        yield curr_id
 
 
-def _scout(field, pos: Pos):
+def _scout(field, ids: dict[Pos], pos_id: int):
     nxt_el_l = []
     for dir in cd_offsets:
+        pos = ids[pos_id]
+
         # Next direction and connectin (to scout)
         nxt_step = cd_offsets[dir]
         nxt_con_pos = pos + nxt_step
@@ -144,8 +211,16 @@ def _scout(field, pos: Pos):
             if next_con.isnumeric() and next_con != '0'\
                 and\
                 nxt_el == 'C':
+                # Kinda dumb... But it wil work...
+                selected_id = -1
+                for id in ids:
+                    _pos = ids[id]
+                    if _pos == nxt_el_pos:
+                        selected_id = id
+                if selected_id < 0:
+                    raise ValueError(f"Didn't find position {nxt_el_pos} id's")
                 # print("Scout:",dir, nxt_el_pos)
-                nxt_el_l.append((dir, nxt_el_pos))       
+                nxt_el_l.append((dir, selected_id))       
     return nxt_el_l
 
 
@@ -168,11 +243,10 @@ def _is_higher(best: list, contender: list):
 
 
 # TODO: enroll all variables in a chain class
-def per_path(field: list[list],
-             start_pos: Pos,
+def per_path(chain: Chain,
+             start_pos_id: int,
              path_stub: list,
              best_stub: list,
-             unique_paths: list,
              origin_dir = 0,
              recur = 0):
     """
@@ -182,73 +256,75 @@ def per_path(field: list[list],
     origin_dir: Previous mirror direction to avoid backtracking
     """
     # Start position of this recursion
-    pos = start_pos
+    pos_id = start_pos_id
     # Temporary as it doesn't work with recursion!
     while True:
-        print_field(field, [pos])
-        nxt_els = _scout(field, pos)
+        print_field(chain.field, [chain.id_dict[pos_id]])
+        nxt_els = _scout(chain.field, chain.id_dict, pos_id)
         nxt_n_con = len(nxt_els)
         
         # Cycle detection
-        if pos in path_stub:
+        if pos_id in path_stub:
             # It will have repeated position
             # But it will make it easier to glance at
             # Cyclic behaviour!
-            path_stub.append(pos)
+            path_stub.append(pos_id)
             return path_stub
-        path_stub.append(pos)
+        path_stub.append(pos_id)
 
-        if nxt_n_con == 2 or pos == start_pos:
+        if nxt_n_con == 2 or pos_id == start_pos_id:
             # If it has one possible path, move
             jump = False
-            for nxt_dir, nxt_el_pos in nxt_els:
+            for nxt_dir, nxt_el_pos_id in nxt_els:
                 if nxt_dir != origin_dir:
                     origin_dir = -nxt_dir
-                    pos = nxt_el_pos
+                    pos_id = nxt_el_pos_id
                     jump = True
                     break
             if jump:
                 continue
         if nxt_n_con > 2:
             # Recursion for multiple paths
-            for nxt_dir, nxt_el_pos in nxt_els:
+            for nxt_dir, nxt_el_pos_id in nxt_els:
                 if nxt_dir != origin_dir:
-                    print(f"({recur + 1}) Going ({nxt_dir}, {nxt_el_pos})")
-                    temp_stub = per_path(field, nxt_el_pos, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub, unique_paths=unique_paths)
+                    print(f"({recur + 1}) Going ({nxt_dir}, {nxt_el_pos_id})")
+                    print(best_stub)
+                    temp_stub = per_path(chain, nxt_el_pos_id, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub)
                     if _is_higher(best_stub, temp_stub):
                         best_stub = temp_stub
             break
         if nxt_n_con == 1:
             print(f"({recur}) Done")
             print(*path_stub)
-            unique_paths.append(path_stub)
+            chain.add_path(path_stub)
             if _is_higher(best_stub, path_stub):
                 best_stub = path_stub
-            print_field(field, path_stub)
+                chain.main_path = best_stub
+            print_field(chain.field, [chain.id_dict[id] for id in path_stub])
             break
     return best_stub
 
 
+# TODO: Insert chain as a parameter
 def per_chain(field):
     """
     Go through the entirety of a chain field representation
     """
-    bestest_path = []
-    unique_paths = []
-    for pos in _edge_c(field):
-        print(f"Start from {pos}")
-        bestest_path = per_path(field,
-                                pos,
+    chain = Chain(field)
+    for id in _edge_c(chain.field, chain.id_dict):
+        print(f"Start from {chain.id_dict[id]}")
+        chain.main_path = per_path(chain,
+                                id,
                                 path_stub=[],
-                                best_stub=bestest_path,
-                                unique_paths=unique_paths
+                                best_stub=chain.main_path
                                 )
-    if bestest_path:
+    if chain.main_path:
         print("Longest:")
-        print_field(field, bestest_path)
+        print_field(field, [chain.id_dict[id] for id in chain.main_path])
     else:
         print("Empty field!") 
-    return unique_paths, bestest_path   
+    # return unique_paths, bestest_path   
+    return chain  
 
 # -- Naming -- 
 # - Main chain naming -
@@ -304,7 +380,7 @@ def _name_con_type(cons: list):
         infix += 'an'
     return infix
 
-def name_chain(field, all_chains: list, main_chain: list):
+def name_chain(field, ids: dict[Pos], all_chains: list, main_chain: list):
     if not main_chain:
         return "Chain is empty!"
     prefix = _name_size_pref(len(main_chain))
@@ -314,7 +390,7 @@ def name_chain(field, all_chains: list, main_chain: list):
     # Makes chain
     cons = []
     old_pos = None
-    for pos in main_chain:
+    for pos in [ids[id] for id in main_chain]:
         if old_pos:
             dif_pos = pos - old_pos
             norm_dif = dif_pos/2
@@ -327,12 +403,12 @@ def name_chain(field, all_chains: list, main_chain: list):
 
 
 def main():
-    path = "Chains/simple.chain"
+    chain = "Chains/simple.chain"
     # Pathfinding
-    field = abrir_arq_chain(path)
-    unique, best = per_chain(field)
-    # Naming
-    print(name_chain(field, unique, best))
+    field = abrir_arq_chain(chain)
+    c_main = per_chain(field)
+    c_main.name = name_chain(field, c_main.id_dict, c_main.paths, c_main.main_path)
+    print(c_main)
 
 
 # -- Start --
