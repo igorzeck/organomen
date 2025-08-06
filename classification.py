@@ -1,5 +1,9 @@
 from base_structures import Pos
 from pathfinding import scout
+from entities import Chain
+
+# TODO: Here might be better to pass pos as list of POS instead of ids
+
 # -- Naming --
 # - Name prefix -
 # - Constants -
@@ -106,7 +110,7 @@ def _name_functional(field, ids: dict[Pos], main_chain: list):
         # Checks postion of Oxygen(s)
         # Alcohol
         for pos_id in atoms_dict['O']:
-            cons_list = scout(field, ids, pos_id, direction=False, con_value=True)
+            cons_list = scout(field, ids, pos_id, nxt_dir=False, con_value=True)
             if len(cons_list) >= 2:
                 # Assumes ceton for now
                 pass  # Ceton code...
@@ -121,19 +125,119 @@ def _name_functional(field, ids: dict[Pos], main_chain: list):
                 elif con_value == '2':
                     return 'al'
     return 'o'
-    
 
-def name_chain(field, ids: dict[Pos], all_chains: list, main_chain: list):
-    if not main_chain:
+
+# TODO: Make id go over the entire chain, not only main one
+def _classif_atom(field: list[Pos], ids, pos_id):
+    pos = ids[pos_id]
+    el = field[pos.row][pos.col]
+    info = scout(field, ids, pos_id)
+    els = [field[ids[id[0]].row][ids[id[0]].col] for id in info]
+    
+    
+    # Oxygen
+    if el != 'O':
+        return 'Unsuported!'
+    
+    # 1. How many Cs
+    if els.count('C') > 1:
+        return 'Ether'
+
+    # Gets host info
+    host_info = []
+    breakout = False
+    for id in info[0]:
+        nxt_info = scout(field, ids, id)
+        for nxt_id in nxt_info:
+            nxt_el = field[ids[nxt_id[0]].row][ids[nxt_id[0]].col]
+            if nxt_el == 'C':
+                host_info = scout(field, ids, id, con_value=True)
+                breakout = True
+                break
+        if breakout:
+            break
+    
+    host_els = [field[ids[id].row][ids[id].col] for id, _ in host_info]
+    
+    # 2. Is it a edge C?
+    c_edge = host_els.count('C') == 1
+
+    # 3. Does the host connect to other Os?
+    c_alone = host_els.count('O') == 1
+
+    # 4. How many double connections with Os?
+    c_n_double = sum([con == '2' and field[ids[id].row][ids[id].col] == 'O' for id, con in host_info])
+    
+    # To be honest I'm not happy with this, but it works
+    if c_n_double == 1:
+        if c_edge:
+            if c_alone:
+                return 'Aldehyde'
+            else:
+                return 'Acid'
+        if c_alone:
+            return 'Ceton'
+    elif c_n_double == 0:
+        return "Alchol"
+    # 4. 
+    return 'Unknown'
+
+
+def _get_class(chain: Chain):
+    functionals = []
+
+    field = chain.field
+    ids = chain.id_dict
+    main_path = chain.main_path
+    
+    atoms_dict = {}
+    for id in ids:
+        pos = ids[id]
+        el = field[pos.row][pos.col]
+        if el in atoms_dict:
+            atoms_dict[el].append(id)
+        else:
+            atoms_dict[el] = [id]
+    print(atoms_dict)
+    # Decides in its functional class
+    if any(el == 'C' for el in atoms_dict):
+        if all(el == 'C' for el in atoms_dict):
+            functionals.append("hydrocarbon")
+            return functionals
+        else:
+            atoms_dict.pop('C')
+    else:
+        functionals.append("not organic")
+        return functionals
+    
+    # Heteroatoms
+    for id in ids:
+        pos = ids[id]
+        el = field[pos.row][pos.col]
+        if el in atoms_dict:
+           functionals.append(_classif_atom(field, ids, id))
+
+    return functionals
+
+
+def class_chain(chain: Chain):
+    field = chain.field
+    ids = chain.id_dict
+    main_path = chain.main_path
+
+    if not main_path:
         return "Chain is empty!"
-    prefix = _name_size_pref(len(main_chain))
+    prefix = _name_size_pref(len(main_path))
     if not prefix:
         return "Chain is too big!"
     
+    # Clasificates chain
+    chain.functional = _get_class(chain)
+
     # Makes chain
     cons = []
     old_pos = None
-    for pos in [ids[id] for id in main_chain]:
+    for pos in [ids[id] for id in main_path]:
         if old_pos:
             # This would be perfect in a function!
             dif_pos = pos - old_pos
@@ -142,7 +246,7 @@ def name_chain(field, ids: dict[Pos], all_chains: list, main_chain: list):
             cons.append(field[con_pos.row][con_pos.col])
         old_pos = pos
     infix = _name_con_type(cons)
-    sufix = _name_functional(field, ids, main_chain)
+    sufix = _name_functional(field, ids, main_path)
     
     # TODO: Hopefully temporary
     return prefix + infix + sufix

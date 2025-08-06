@@ -32,8 +32,11 @@ class Chain:
 
         # - Chemical properties -
         self.name = ""
-        self.func_name = ""
         
+        self.functional = ""
+        self.func_name = ""
+
+
     def load_file(self, arq: str):
         self.initiate(abrir_arq_chain(arq))
     
@@ -69,7 +72,8 @@ class Chain:
             mock_field[pos.row][pos.col] = i
         print_field(mock_field)
     def __str__(self):
-        summary = f"Name: {self.name}"
+        summary = f"Name: {self.name}\
+                   Functional class: {self.functional}"
         return summary
 
     def __repr__(self):

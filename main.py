@@ -17,7 +17,7 @@
 # TODO: Naming arguments in a yaml or simmilar to make it possible translations
 # -- Imports --
 from pathfinding import per_chain
-from classification import name_chain
+from classification import class_chain
 from entities import *
 
 
@@ -26,7 +26,7 @@ def main():
     # Pathfinding
     c_main = Chain(chain_path)
     c_main = per_chain(c_main.field)
-    c_main.name = name_chain(c_main.field, c_main.id_dict, c_main.paths, c_main.main_path)
+    c_main.name = class_chain(c_main)
     print(c_main)
 
 

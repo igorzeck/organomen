@@ -49,7 +49,8 @@ def _is_higher(best: list, contender: list):
         return False
 
 
-def scout(field, ids: dict[Pos], pos_id: int, direction = True, con_value = False):
+# TODO: Version to accept positions AND id positions
+def scout(field, ids: dict[Pos], pos_id: int, nxt_dir = False, con_value = False):
     """
     Scouts the vicinity of an given position
     field: Chain field
@@ -84,7 +85,7 @@ def scout(field, ids: dict[Pos], pos_id: int, direction = True, con_value = Fals
                 # print("Scout:",dir, nxt_el_pos)
                 # TODO: Reorder this bit of code so selected id is the first
                 _package = []
-                if direction:
+                if nxt_dir:
                     _package.append(dir)
                 _package.append(selected_id)
                 if con_value:
@@ -111,7 +112,7 @@ def per_path(chain: Chain,
     # Temporary as it doesn't work with recursion!
     while True:
         print_field(chain.field, [chain.id_dict[pos_id]])
-        nxt_els = scout(chain.field, chain.id_dict, pos_id)
+        nxt_els = scout(chain.field, chain.id_dict, pos_id, nxt_dir=True)
         nxt_n_con = len(nxt_els)
         
         # Cycle detection
