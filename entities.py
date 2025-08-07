@@ -1,7 +1,32 @@
 from base_structures import Pos, print_field, abrir_arq_chain
 
-# Idea: make each atom be indexed initially
-# and have its connections be mapped out too
+# - Connection -
+# TODO: Não é melhor por referência logo?
+class Connection:
+    # - Class related -
+    def __init__(self, from_id: int, to_id: int, dir: int, type: int):
+        self.from_id = from_id
+        self.to_id = to_id
+        self.dir = dir
+        self.type = type
+    def __str__(self):
+        return f'(From: {self.from_id}, To: {self.to_id}, Dir: {self.dir}, Type: {self.type})'
+    def __repr__(self):
+        return self.__str__()
+
+# - (Chemical) Entity -
+class Entity:
+    # - Class Related -
+    def __init__(self, ent_id, el: str, cons: list[Connection]):
+        self.id = ent_id
+        self.el = el
+        self.cons = cons
+    # - Visual -
+    def __str__(self):
+        return f"({self.id}: {self.el} - {self.cons})"
+    def __repr__(self):
+        return f"({self.id}: {self.el})"
+
 # - Classes -
 class Chain:
     def __init__(self, builder: str | list):
@@ -18,7 +43,7 @@ class Chain:
             raise TypeError('Builder is neither an file path (str) or field\'s list!')
     
     # - Class related -
-    def initiate(self, field: list):
+    def initiate(self, field: list[str], entities: tuple[Entity] = None):
         # - Field -
         self.field = field
         self.n_row = len(self.field)
@@ -30,6 +55,9 @@ class Chain:
         # List of indexes for the main paths (name-definer)
         self.main_path = []
 
+        # ~ Test ~
+        self.chain = entities
+
         # - Chemical properties -
         self.name = ""
         
@@ -38,7 +66,21 @@ class Chain:
 
 
     def load_file(self, arq: str):
-        self.initiate(abrir_arq_chain(arq))
+        field: list[list[str]] = abrir_arq_chain(arq)
+        chain = []
+        # Create chain representation of the field
+        ent_id = 0
+        for row in field:
+            for el in row:
+                if not el.isnumeric():
+                    
+                    chain.append(Entity(
+                        ent_id,
+                        el,
+
+                    ))
+                ent_id += 1
+        self.initiate(field, tuple(chain))
     
     # - Construct -
     def _make_id_dict(self):
@@ -75,6 +117,9 @@ class Chain:
         summary = f"Name: {self.name}\
                    Functional class: {self.functional}"
         return summary
-
     def __repr__(self):
         return self.__str__()
+    
+    # - Functionalities -
+    def __len__(self):
+        return len(self.paths)

@@ -71,6 +71,7 @@ def print_field(field: list[list], highlights: tuple = [Pos(-1, -1)], zeros_repr
     print("")
 
 # -- Constants --
+# Enun would be just lovely, but alas...
 # Connections directions
 NORTHWEST = -4
 NORTH = -3
@@ -80,6 +81,12 @@ EAST = 1
 SOUTHWEST = 2
 SOUTH = 3
 SOUTHEAST = 4
+
+# Connection type
+SIMPLE = 1
+DOUBLE = 2
+TRIPLE = 3
+QUADRUPLE = 4
 
 # Coordinates associated with each connection
 cd_offsets = {

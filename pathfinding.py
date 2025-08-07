@@ -49,6 +49,48 @@ def _is_higher(best: list, contender: list):
         return False
 
 
+def scout_field(field: list[list[str]], pos:Pos, nxt_dir = False, con_value = False):
+    """
+    Scouts the vicinity of an given position
+    field: Chain field
+    pos: Pos to investigate around
+    direction: If True returns direction
+    con_value: If true returns connection value
+    returns: list of a tuple (package) with up to the following elements (dir, next_id, connection)
+    """
+    nxt_el_l = []
+    for dir in cd_offsets:
+        pos = ids[pos_id]
+        # Next direction and connectin (to scout)
+        nxt_step = cd_offsets[dir]
+        nxt_con_pos = pos + nxt_step
+        nxt_el_pos = nxt_con_pos + nxt_step
+        if _is_inside(nxt_el_pos, len(field), len(field[0])):
+            # If is inside, check to see if there is a valid atom in the next path
+            nxt_el = field[nxt_el_pos.row][nxt_el_pos.col]
+            next_con = field[nxt_con_pos.row][nxt_con_pos.col]
+            if next_con.isnumeric() and next_con != '0'\
+                and\
+                not nxt_el.isnumeric():
+                # Kinda dumb... But it wil work...
+                selected_id = -1
+                for id in ids:
+                    _pos = ids[id]
+                    if _pos == nxt_el_pos:
+                        selected_id = id
+                if selected_id < 0:
+                    raise ValueError(f"Didn't find position {nxt_el_pos} id's")
+                # print("Scout:",dir, nxt_el_pos)
+                # TODO: Reorder this bit of code so selected id is the first
+                _package = []
+                if nxt_dir:
+                    _package.append(dir)
+                _package.append(selected_id)
+                if con_value:
+                    _package.append(next_con)
+                nxt_el_l.append(_package)       
+    return nxt_el_l
+
 # TODO: Version to accept positions AND id positions
 def scout(field, ids: dict[Pos], pos_id: int, nxt_dir = False, con_value = False):
     """

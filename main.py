@@ -24,10 +24,12 @@ from entities import *
 def main():
     chain_path = "Chains/simple.chain"
     # Pathfinding
+    print(Entity(1, 'C', [Connection(1, 3, 1, 1), Connection(1, 2, 2, 1)]))
     c_main = Chain(chain_path)
-    c_main = per_chain(c_main.field)
-    c_main.name = class_chain(c_main)
-    print(c_main)
+    # c_main = Chain(chain_path)
+    # c_main = per_chain(c_main.field)
+    # c_main.name = class_chain(c_main)
+    # print(c_main)
 
 
 # -- Start --
