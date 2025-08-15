@@ -89,7 +89,7 @@ TRIPLE = 3
 QUADRUPLE = 4
 
 # Coordinates associated with each connection
-cd_offsets = {
+CD_OFFS = {
     -4:Pos(-1, -1),
     -3:Pos(-1, 0),
     -2:Pos(-1, 1),

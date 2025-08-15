@@ -1,8 +1,11 @@
 from base_structures import Pos
-from pathfinding import scout
+from chain_runner import scout
 from entities import Chain
 
 # TODO: Here might be better to pass pos as list of POS instead of ids
+# TODO: Multifunction procedure might be harder than it appears
+# TODO: Need to be careful with counting! You start counting from one edge onwards!
+# TODO: Treat cycles and ramifications like function
 
 # -- Naming --
 # - Name prefix -
@@ -44,6 +47,13 @@ SUFIXES = [
     'oico', # Acid
     'ona', # Keton
 ]
+
+CON_Q = [
+        'UNDER',
+        '',
+        'di',
+        'tri'
+    ]
 # For now infixes are not included
 # - Function -
 # - Main chain naming -
@@ -87,46 +97,70 @@ def _name_con_type(cons: list):
 
 
 # Will be more complicated for cyclic types...
-def _name_functional(field, ids: dict[Pos], main_chain: list):
-    # atoms_set = set()
-    # atoms_list = []
-    atoms_dict = {}
-    for id in main_chain:
-        pos = ids[id]
-        el = field[pos.row][pos.col]
-        if el in atoms_dict:
-            atoms_dict[el].append(id)
-        else:
-            atoms_dict[el] = [id]
-        # atoms_set.add(el)
-        # atoms_list.append((el, pos))
-    # Checks heteroathoms
-    if len(atoms_dict) == 1:
-        return 'o'
-    # Separated function?
-    # For now by hand
-    # TODO: Separate into functions as its possible to have multiple functional groups at the same time!
-    if 'O' in atoms_dict:
-        # Checks postion of Oxygen(s)
-        # Alcohol
-        for pos_id in atoms_dict['O']:
-            cons_list = scout(field, ids, pos_id, nxt_dir=False, con_value=True)
-            if len(cons_list) >= 2:
-                # Assumes ceton for now
-                pass  # Ceton code...
-            else:  # Sees connection type
-                nxt_id, con_value = cons_list[0]
-                nxt_pos = ids[nxt_id]
-                print(field[nxt_pos.row][nxt_pos.col], con_value)
-                if con_value == '1':
-                    # can be acid too!
-                    # TODO: Needs to check next pos to confirm
-                    return 'ol'
-                elif con_value == '2':
-                    return 'al'
-    return 'o'
+# For now it will return both the function NAME
+# def _name_functional(field, ids: dict[Pos], main_chain: list):
+#     # atoms_set = set()
+#     # atoms_list = []
+#     atoms_dict = {}
+#     for id in main_chain:
+#         pos = ids[id]
+#         el = field[pos.row][pos.col]
+#         if el in atoms_dict:
+#             atoms_dict[el].append(id)
+#         else:
+#             atoms_dict[el] = [id]
+#         # atoms_set.add(el)
+#         # atoms_list.append((el, pos))
+#     # Checks heteroathoms
+#     if len(atoms_dict) == 1:
+#         return 'o'
+#     # Separated function?
+#     # For now by hand
+#     # TODO: Separate into functions as its possible to have multiple functional groups at the same time!
+#     if 'O' in atoms_dict:
+#         # Checks postion of Oxygen(s)
+#         # Alcohol
+#         for pos_id in atoms_dict['O']:
+#             cons_list = scout(field, ids, pos_id, nxt_dir=False, con_value=True)
+#             if len(cons_list) >= 2:
+#                 # Assumes ceton for now
+#                 pass  # Ceton code...
+#             else:  # Sees connection type
+#                 nxt_id, con_value = cons_list[0]
+#                 nxt_pos = ids[nxt_id]
+#                 print(field[nxt_pos.row][nxt_pos.col], con_value)
+#                 if con_value == '1':
+#                     # can be acid too!
+#                     # TODO: Needs to check next pos to confirm
+#                     return 'ol'
+#                 elif con_value == '2':
+#                     return 'al'
+#     return 'o'
 
 
+def _name_functional(functional: dict[list[int]]):
+    final_str = ''
+    for funct in functional:
+        # Checks size
+        funct_info = functional[funct]
+        n_ent = len(funct_info)
+        if n_ent >= 2:
+            str_func = [str(_pos) for _pos in funct_info]
+            n_str = ''
+            if n_ent < len(CON_Q):
+                n_str += CON_Q[n_ent]
+            final_str += '-' + ','.join(str_func) + '-' + n_str
+        match(funct):
+            case 'Alchol':
+                final_str += 'ol'
+            case 'Aldehyde':
+                final_str += 'al'
+            case 'Acid':
+                final_str += 'oico'
+            case 'Ceton':
+                final_str += 'ona'
+    return final_str
+        
 # TODO: Make id go over the entire chain, not only main one
 def _classif_atom(field: list[Pos], ids, pos_id):
     pos = ids[pos_id]
@@ -135,7 +169,7 @@ def _classif_atom(field: list[Pos], ids, pos_id):
     els = [field[ids[id[0]].row][ids[id[0]].col] for id in info]
     
     
-    # Oxygen
+    # - Oxygen -
     if el != 'O':
         return 'Unsuported!'
     
@@ -145,20 +179,21 @@ def _classif_atom(field: list[Pos], ids, pos_id):
 
     # Gets host info
     host_info = []
-    breakout = False
+    host_id = -1
+
     for id in info[0]:
         nxt_info = scout(field, ids, id)
         for nxt_id in nxt_info:
             nxt_el = field[ids[nxt_id[0]].row][ids[nxt_id[0]].col]
             if nxt_el == 'C':
-                host_info = scout(field, ids, id, con_value=True)
-                breakout = True
+                host_info = scout(field, ids, id, nxt_con_val=True)
+                host_id = id
                 break
-        if breakout:
+        if host_id != -1:
             break
     
     host_els = [field[ids[id].row][ids[id].col] for id, _ in host_info]
-    
+
     # 2. Is it a edge C?
     c_edge = host_els.count('C') == 1
 
@@ -169,65 +204,61 @@ def _classif_atom(field: list[Pos], ids, pos_id):
     c_n_double = sum([con == '2' and field[ids[id].row][ids[id].col] == 'O' for id, con in host_info])
     
     # To be honest I'm not happy with this, but it works
+    func_name = 'Unknown'
     if c_n_double == 1:
         if c_edge:
             if c_alone:
-                return 'Aldehyde'
+                func_name = 'Aldehyde'
             else:
-                return 'Acid'
-        if c_alone:
-            return 'Ceton'
+                func_name = 'Acid'
+        elif c_alone:
+            func_name = 'Ceton'
     elif c_n_double == 0:
-        return "Alchol"
+        func_name = "Alchol"
 
-    return 'Unknown'
+    return func_name, host_id
 
 
 def _get_class(chain: Chain):
-    functionals = []
+    functionals: dict = {}
 
     field = chain.field
-    ids = chain.id_dict
-    main_path = chain.main_path
     
-    atoms_dict = {}
-    for id in ids:
-        pos = ids[id]
+    atoms_dict: dict = {}
+    for pos_id, pos in enumerate(chain.id_pool):
         el = field[pos.row][pos.col]
         if el in atoms_dict:
-            atoms_dict[el].append(id)
+            atoms_dict[el].append(pos_id)
         else:
-            atoms_dict[el] = [id]
+            atoms_dict[el] = [pos_id]
     print(atoms_dict)
     # Decides in its functional class
     if any(el == 'C' for el in atoms_dict):
         if all(el == 'C' for el in atoms_dict):
-            functionals.append("hydrocarbon")
-            return functionals
+            return 'hydrcarbon'
         else:
             atoms_dict.pop('C')
     else:
-        functionals.append("not organic")
-        return functionals
+        return "not organic"
     
     # Heteroatoms
-    for id in ids:
-        pos = ids[id]
+    for pos_id, pos in enumerate(chain.id_pool):
         el = field[pos.row][pos.col]
         if el in atoms_dict:
-           functionals.append(_classif_atom(field, ids, id))
+           # Note that it uses the host ID
+           _class, _host_id = _classif_atom(field, chain.id_pool, pos_id)
+           if _class in functionals:
+               functionals[_class].add(_host_id)
+           else:
+               functionals[_class] = {_host_id}
 
     return functionals
 
 
 def class_chain(chain: Chain):
-    field = chain.field
-    ids = chain.id_dict
-    main_path = chain.main_path
-
-    if not main_path:
+    if not chain.main_path:
         return "Chain is empty!"
-    prefix = _name_size_pref(len(main_path))
+    prefix = _name_size_pref(len(chain.main_path))
     if not prefix:
         return "Chain is too big!"
     
@@ -237,16 +268,17 @@ def class_chain(chain: Chain):
     # Makes chain
     cons = []
     old_pos = None
-    for pos in [ids[id] for id in main_path]:
+    for pos in [chain.id_pool[id] for id in chain.main_path]:
         if old_pos:
             # This would be perfect in a function!
             dif_pos = pos - old_pos
             norm_dif = dif_pos/2
             con_pos = old_pos + norm_dif
-            cons.append(field[con_pos.row][con_pos.col])
+            cons.append(chain.field[con_pos.row][con_pos.col])
         old_pos = pos
     infix = _name_con_type(cons)
-    sufix = _name_functional(field, ids, main_path)
-    
+    sufix = _name_functional(chain.functional)
+
     # TODO: Hopefully temporary
+    chain.name = prefix + infix + sufix
     return prefix + infix + sufix
