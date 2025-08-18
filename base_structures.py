@@ -40,6 +40,8 @@ def abrir_arq_chain(nome_arq):
 
 
 # - Visual -
+# TODO: Still using field I see...
+# TODO: Change it to show on chain path instead
 def print_field(field: list[list], highlights: tuple = [Pos(-1, -1)], zeros_repr='.'):
     """
     Prints the 2D matrix representation

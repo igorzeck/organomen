@@ -1,61 +1,149 @@
-from base_structures import Pos, CD_OFFS
-# Pathfinding and scout base functions
+from copy import deepcopy
+from base_structures import *
+from auxiliary import *
+from entities import Chain, Entity
 
-# -- Functions --
-# TODO: Put this function inside scout?
-def _is_inside(pos: Pos, n_row:int, n_col:int):
-    if (pos.row >= n_row or pos.col >= n_col)\
-        or\
-        (pos.row < 0 or pos.col < 0):
+# - Runners -
+# Should first selected based on: heteroatom
+# Then: Connections
+# Then: size
+# In this order!
+def _is_higher(best: list, contender: list):
+    """
+    Checks if path is best fit to be the main one.
+    """
+    if len(contender) > len(best):
+        return True
+    else:
         return False
-    return True
 
 
-# TODO: Version to accept positions AND id positions
-# Scout via id_pool and chain itself perhaps?
-# Those params are kinda cluttered!
-def scout(field, pos_pool: tuple[Pos], pos_id: int, nxt_id = True, nxt_dir = False, nxt_con_val = False, nxt_str = False):
+def run_path(chain: Chain,
+             start_pos_id: int,
+             path_stub: list,
+             best_stub: list,
+             origin_dir = 0,
+             recur = 0):
     """
-    Scouts the vicinity of an given position
-    field: Chain field
-    ids: Chain tuple containing a table of ids to postion in the field
-    pos_id: Pos id to investigate around
-    direction: If True returns direction
-    con_value: If true returns connection value
-    returns: list of a tuple (package) with up to the following elements (nxt_id, dir, type)
+    Go through the 2D representation of a carbon chain
+    path
+    recur: Current recursion (TODO: take it out)
+    origin_dir: Previous mirror direction to avoid backtracking
     """
-    nxt_el_l = []
-    for dir in CD_OFFS:
-        pos = pos_pool[pos_id]
-        # Next direction and connectin (to scout)
-        nxt_step = CD_OFFS[dir]
-        nxt_con_pos = pos + nxt_step
-        nxt_el_pos = nxt_con_pos + nxt_step
-        if _is_inside(nxt_el_pos, len(field), len(field[0])):
-            # If is inside, check to see if there is a valid atom in the next path
-            nxt_el = field[nxt_el_pos.row][nxt_el_pos.col]
-            next_con = field[nxt_con_pos.row][nxt_con_pos.col]
-            if next_con.isnumeric() and next_con != '0'\
-                and\
-                not nxt_el.isnumeric():
-                # Kinda dumb... But it wil work...
-                selected_id = None
-                nxt_pos = None
-                for i_pos, _pos in enumerate(pos_pool):
-                    if _pos == nxt_el_pos:
-                        selected_id = i_pos
-                        nxt_pos = _pos
-                if selected_id is None:
-                    raise ValueError(f"Didn't find position {nxt_el_pos} id's")
+    # Start position of this recursion
+    pos_id = start_pos_id
+    
+    # Temporary as it doesn't work with recursion!
+    while True:
+        print_field(chain.field, [chain.id_pool[pos_id]])
+        nxt_els = chain.chain[pos_id]
+        nxt_n_con = len(nxt_els.cons)
+        print(nxt_els, pos_id)
+        # Cycle detection
+        if pos_id in path_stub:
+            # It will have repeated position
+            # But it will make it easier to glance at
+            # Cyclic behaviour!
+            path_stub.append(pos_id)
+            return path_stub
+        path_stub.append(pos_id)
 
-                _package = []
-                if nxt_id:
-                    _package.append(selected_id)
-                if nxt_dir:
-                    _package.append(dir)
-                if nxt_con_val:
-                    _package.append(next_con)
-                if nxt_str and nxt_pos:
-                    _package.append(field[nxt_pos.row][nxt_pos.col])
-                nxt_el_l.append(_package)
-    return nxt_el_l
+        # Lone heteroatom detection
+        # Kinda hacky tbh
+        pos = chain.id_pool[pos_id]
+        el = chain.field[pos.row][pos.col]
+        if el != 'C':
+            if len(scout(chain.field, chain.id_pool,pos_id)) == 1:
+                return []
+
+        if (nxt_n_con == 2 and pos_id not in chain.edges) or pos_id == start_pos_id:
+            # If it has one possible path, move
+            jump = False
+            for _con in nxt_els:
+                nxt_dir = _con.dir
+                nxt_el_pos_id = _con.to_id
+                if nxt_dir != origin_dir:
+                    origin_dir = -nxt_dir
+                    pos_id = nxt_el_pos_id
+                    jump = True
+                    break
+            if jump:
+                continue
+        if nxt_n_con > 2 and pos_id not in chain.edges:
+            # Recursion for multiple paths
+            for _con in nxt_els:
+                nxt_dir = _con.dir
+                nxt_el_pos_id = _con.to_id
+                if nxt_dir != origin_dir:
+                    print(f"({recur + 1}) Going ({nxt_dir}, {nxt_el_pos_id})")
+                    print(best_stub)
+                    temp_stub = run_path(chain, nxt_el_pos_id, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub)
+                    if _is_higher(best_stub, temp_stub):
+                        best_stub = temp_stub
+            break
+        if pos_id in chain.edges:
+            print(f"({recur}) Done")
+            print(*path_stub)
+            # chain.add_path(path_stub)
+            if _is_higher(best_stub, path_stub):
+                best_stub = path_stub
+                chain.main_path = best_stub
+            print_field(chain.field, [chain.id_pool[id] for id in path_stub])
+            break
+    return best_stub
+
+
+def get_sub_groups(chain: Chain):
+    # Get substitutive groups
+    Tto_highlight: Pos = []
+    groups: list[list[Entity]] = []
+    for ent in chain.main_chain:
+        # Iterates through all connections outside main_chain
+        for con in ent.cons:
+            if con.to_id not in chain.main_chain:
+                # Follows lead
+                groups.append(follow_path(chain.chain, con.to_id, con.dir))
+                print(groups)
+
+        if any([con.to_id not in chain.main_path for con in ent.cons]):
+            Tto_highlight.append(chain.id_pool[ent.id])
+            # print(ent)
+    print(Tto_highlight)
+    print_field(chain.field, Tto_highlight)
+
+
+def follow_path(chain_path: list[Entity], to_id: int, dir: int):
+    ent = chain_path[to_id]
+    pos_id = to_id
+    while len(ent) > 1 and pos_id not in chain_path:
+        print(ent)
+        return ent
+
+
+# TODO: Insert chain as a parameter
+# TODO: It needs to start and end at an edge!
+def run_chain(field):
+    """
+    Go through the entirety of a chain field representation
+    """
+    chain = Chain(field)
+    for pos_id in chain.edges:
+        print(f"Start from {chain.id_pool[pos_id]}")
+        chain.main_path = run_path(chain,
+                                pos_id,
+                                path_stub=[],
+                                best_stub=chain.main_path
+                                )
+    if chain.main_path:
+        print("Longest:")
+        print_field(field, [chain.id_pool[id] for id in chain.main_path])
+    else:
+        print("Empty field!") 
+    # ~ Test ~
+    for pos_id in chain.main_path:
+        chain.main_chain.append(chain.chain[pos_id])
+
+    # chain.groups = get_sub_groups(chain)
+    get_sub_groups(chain)
+
+    return chain  

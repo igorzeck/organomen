@@ -1,7 +1,7 @@
 # TODO: Entity object with iter overload so you can get its connections
 # TODO: Make an field with id instead of elements and maybe negative for connections
 from base_structures import Pos, print_field, abrir_arq_chain, CD_OFFS
-from pathfinder import *
+from auxiliary import *
 
 # - Connection -
 class Connection:
@@ -11,6 +11,14 @@ class Connection:
         self.to_id = id_to
         self.dir = dir
         self.type = type
+    # - Features -
+    def __eq__(self, value):
+        return (
+            (self.from_id == value.from_id) and
+            (self.to_id == value.to_id) and
+            (self.dir == value.dir)
+            (self.type == value.type)
+        )
     def __str__(self):
         return f'(From: {self.from_id}, To: {self.to_id}, Dir: {self.dir}, Type: {self.type})'
     def __repr__(self):
@@ -19,7 +27,7 @@ class Connection:
 # - (Chemical) Entity -
 class Entity:
     # - Class Related -
-    def __init__(self, ent_id, el: str, cons: list[Connection]):
+    def __init__(self, ent_id: int, el: str, cons: list[Connection]):
         # ~ Pos ~
         # self.pos: Pos = pos
         
@@ -33,13 +41,27 @@ class Entity:
     def __repr__(self):
         return f"({self.id}: {self.el})"
     # - Features -
+    def __eq__(self, value):
+        if isinstance(value, int):
+            return self.id == value
+        else:
+            if len(self.cons) == len(value.cons):
+                return (
+                    self.id == value.id,
+                    self.el == value.el,
+                    all([self.cons[i] == value.cons[i] for i in len(self.cons)]
+                    )
+                )
+            else:
+                return False
     def __iter__(self):
         for i in range(len(self.cons)):
             yield self.cons[i]
+    def __len__(self):
+        return len(self.cons)
 
 # - Classes -
-# Poderia guardar os carbonos em um gerador
-# Que itera por referência eles
+# Single chain (only one path) representation
 class Chain:
     def __init__(self, builder: str | list):
         """
@@ -65,15 +87,20 @@ class Chain:
         self.id_pool: tuple[Pos] = self._make_id_pool()
 
         # List all of paths
-        self.paths: list[int] = []
+        # Maybe instead of this, I could get alternatives after...
+        # self.paths: list[int] = []
         # List of indexes for the main paths (name-definer)
         self.main_path: int = []
 
         # ~ Test ~
         self.chain: list[Entity] = []
+        self.main_chain: list[Entity] = []
+        self.groups: list[list[Entity]] = []
+
         self.edges: list = []
 
         # Create chain representation of the field
+        # It indexes self.chain by id_pos
         for id_pos, pos in enumerate(self.id_pool):
             el_str = field[pos.row][pos.col]
             con_info = scout(field, self.id_pool, id_pos, nxt_dir=True, nxt_con_val=True, nxt_str=True)
@@ -85,8 +112,8 @@ class Chain:
                 cons.append(Connection(id_pos, nxt_id, dir, type))
                 if ent_str == 'C':
                     c_count += 1
-            self.chain.append(Entity(pos, el_str, cons))
-            if el_str == 'C' and c_count == 1:
+            self.chain.append(Entity(id_pos, el_str, cons))
+            if el_str == 'C' and c_count <= 1:
                 self.edges.append(id_pos)
         # - Chemical properties -
         self.name = ""
@@ -109,17 +136,17 @@ class Chain:
         return tuple(pos_pool)
     
     # - Element-wise -
-    def add_path(self, path):
-        """
-        Adds a new path if it is unique
-        """
-        if not self.paths:
-            self.paths.append(path)
-            return
-        for i_path in self.paths:
-            if (len(i_path) == len(path)) and (sorted(i_path) != sorted(path)):
-                self.paths.append(path)
-                break
+    # def add_path(self, path):
+    #     """
+    #     Adds a new path if it is unique
+    #     """
+    #     if not self.paths:
+    #         self.paths.append(path)
+    #         return
+    #     for i_path in self.paths:
+    #         if (len(i_path) == len(path)) and (sorted(i_path) != sorted(path)):
+    #             self.paths.append(path)
+    #             break
     
     # - Visual -
     def print_ids(self):

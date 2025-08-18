@@ -1,5 +1,5 @@
 from base_structures import Pos
-from chain_runner import scout
+from pathfinder import scout
 from entities import Chain
 
 # TODO: Here might be better to pass pos as list of POS instead of ids
@@ -40,13 +40,14 @@ PREFIXES = [
     'icos'
 ]
 # Relative to chain functional class
-SUFIXES = [
-    'o', # Hydrocarbon
-    'ol', # Alcohol
-    'al', # Aldehyde
-    'oico', # Acid
-    'ona', # Keton
-]
+SUFIXES = {
+    'Hydrocarbon':'o',
+    'Alcohol':'ol',
+    'Aldehyde':'al',
+    'Acid':'oico',
+    'Keton':'ona',
+    'Ether':'ico'
+}
 
 CON_Q = [
         'UNDER',
@@ -150,15 +151,7 @@ def _name_functional(functional: dict[list[int]]):
             if n_ent < len(CON_Q):
                 n_str += CON_Q[n_ent]
             final_str += '-' + ','.join(str_func) + '-' + n_str
-        match(funct):
-            case 'Alchol':
-                final_str += 'ol'
-            case 'Aldehyde':
-                final_str += 'al'
-            case 'Acid':
-                final_str += 'oico'
-            case 'Ceton':
-                final_str += 'ona'
+        final_str += SUFIXES[funct]
     return final_str
         
 # TODO: Make id go over the entire chain, not only main one
@@ -171,11 +164,11 @@ def _classif_atom(field: list[Pos], ids, pos_id):
     
     # - Oxygen -
     if el != 'O':
-        return 'Unsuported!'
+        return 'Unsupported!', pos_id
     
     # 1. How many Cs
     if els.count('C') > 1:
-        return 'Ether'
+        return 'Ether', pos_id
 
     # Gets host info
     host_info = []
@@ -235,7 +228,7 @@ def _get_class(chain: Chain):
     # Decides in its functional class
     if any(el == 'C' for el in atoms_dict):
         if all(el == 'C' for el in atoms_dict):
-            return 'hydrcarbon'
+            return {'Hydrocarbon': {chain.main_path[0]}}
         else:
             atoms_dict.pop('C')
     else:
@@ -276,6 +269,7 @@ def class_chain(chain: Chain):
             con_pos = old_pos + norm_dif
             cons.append(chain.field[con_pos.row][con_pos.col])
         old_pos = pos
+    # TODO: Use connections already stored in chaib object?
     infix = _name_con_type(cons)
     sufix = _name_functional(chain.functional)
 
