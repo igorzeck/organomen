@@ -1,13 +1,62 @@
 from copy import deepcopy
 from base_structures import *
 from auxiliary import *
-from entities import Chain, Entity
+from entities import Chain, Entity, Connection
 
 # - Runners -
 # Should first selected based on: heteroatom
 # Then: Connections
 # Then: size
 # In this order!
+def _get_host(chain: Chain, ent: Entity):
+    """
+    Return the host - atom inside main path - of the entity
+    If it doesn't have an host, return itself
+    """
+    return run_subpath(chain, ent)
+
+
+def run_subpath(chain: Chain, ent: Entity, con: Connection = None):
+    # Explore all connections directions
+    # Stops if End of Path EOP, that is:
+    # - Finds itself (in a loop)
+    # - If finds an edge
+    # - If finds an main_chain atom (return it)
+    curr_ent = ent
+    failsafe = 0
+    while True:
+        # Found main path
+        if curr_ent in chain.main_chain:
+            return curr_ent
+        # First iteration
+        if not con:
+            for _con in ent:
+                _return = run_subpath(chain, ent, _con)
+                if _return:
+                    return _return
+            return None
+        # Cyclic-case
+        elif ent == curr_ent:
+            return None
+        # Edge-case
+        elif len(ent) == 1:
+            return None
+        # Advances "direction"
+        elif len(ent) > 2:
+            curr_ent = chain.chain[con.to_id]
+            break
+        else:
+            # Recursion
+            for _con in ent.cons:
+                if _con != con:
+                    _return = run_subpath(chain, ent, _con.to_id)
+                    if _return:
+                        return _return
+        if failsafe > 100:
+            raise IndexError("Too big of a chain: Too big subapath, malformed chain!")
+
+
+
 def _is_higher(best: list, contender: list):
     """
     Checks if path is best fit to be the main one.
@@ -93,6 +142,7 @@ def run_path(chain: Chain,
     return best_stub
 
 
+# Obsolet
 def get_sub_groups(chain: Chain):
     # Get substitutive groups
     Tto_highlight: Pos = []

@@ -1,6 +1,6 @@
 from base_structures import Pos
-from pathfinder import scout
-from entities import Chain
+from pathfinder import scout, _get_host
+from entities import Chain, Entity
 
 # TODO: Here might be better to pass pos as list of POS instead of ids
 # TODO: Multifunction procedure might be harder than it appears
@@ -56,6 +56,33 @@ CON_Q = [
         'tri'
     ]
 # For now infixes are not included
+# - Class -
+class Classifier:
+    """
+    Classifier object for an atom
+    """
+    # - Class related -
+    def __init__(self, chain: Chain, ent: Entity):
+        self.chain: Chain = chain
+        
+        self.ent: Entity = ent
+
+        # Maybe look only "edge" cases?
+        self.host: Entity = _get_host(self.chain, self.ent)
+        
+        self.classification: tuple = (None, "Unknown")
+
+    def classifie(self):
+        self.root_question()
+    # - Classification logic - 
+    # (tree-like function cascade)
+    def root_question(self):
+        # 1. Is inside main path (chain)?
+        if self.ent in self.chain.main_chain:
+            print(f"{self.ent} is inside main chain!")
+        else:
+            print(f"{self.ent} is NOT inside main chain!")
+        
 # - Function -
 # - Main chain naming -
 def _name_size_pref(n_main: int):
@@ -257,7 +284,9 @@ def class_chain(chain: Chain):
     
     # Clasificates chain
     chain.functional = _get_class(chain)
-
+    for ent in chain:
+        _classfier = Classifier(chain, ent)
+        _classfier.classifie()
     # Makes chain
     cons = []
     old_pos = None

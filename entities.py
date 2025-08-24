@@ -16,7 +16,7 @@ class Connection:
         return (
             (self.from_id == value.from_id) and
             (self.to_id == value.to_id) and
-            (self.dir == value.dir)
+            (self.dir == value.dir) and
             (self.type == value.type)
         )
     def __str__(self):
@@ -46,17 +46,18 @@ class Entity:
             return self.id == value
         else:
             if len(self.cons) == len(value.cons):
-                return (
-                    self.id == value.id,
-                    self.el == value.el,
-                    all([self.cons[i] == value.cons[i] for i in len(self.cons)]
-                    )
+                val = (
+                    (self.id == value.id) and
+                    (self.el == value.el) and
+                    (all([self.cons[i] == value.cons[i] for i in range(len(self.cons))]))
                 )
+                return val
             else:
                 return False
     def __iter__(self):
         for i in range(len(self.cons)):
             yield self.cons[i]
+    # Maybe accessor function to chain.chain?
     def __len__(self):
         return len(self.cons)
 
@@ -165,3 +166,6 @@ class Chain:
     # - Functionalities -
     def __len__(self):
         return len(self.paths)
+    def __iter__(self):
+        for i in range(len(self.chain)):
+            yield self.chain[i]
