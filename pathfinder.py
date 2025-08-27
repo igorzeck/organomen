@@ -16,42 +16,42 @@ def _get_host(chain: Chain, ent: Entity):
     return run_subpath(chain, ent)
 
 
-def run_subpath(chain: Chain, ent: Entity, con: Connection = None):
-    # Explore all connections directions
-    # Stops if End of Path EOP, that is:
-    # - Finds itself (in a loop)
-    # - If finds an edge
-    # - If finds an main_chain atom (return it)
-    curr_ent = ent
+def run_subpath(chain: Chain, ent: Entity, subpath: list[int], con: Connection = None):
+    """
+    Explore all connections directions
+    Stops if End of Path EOP, that is:
+    - Finds itself (in a loop)
+    - If finds an edge
+    - If finds an main_chain atom (return it)
+    subpath is changed by reference
+    """
+    nxt_ent = ent
     failsafe = 0
     while True:
+        subpath.append(ent)
         # Found main path
-        if curr_ent in chain.main_chain:
-            return curr_ent
+        if nxt_ent in chain.main_chain:
+            print("FIM")
+            return subpath
+            # return curr_ent
         # First iteration
         if not con:
             for _con in ent:
-                _return = run_subpath(chain, ent, _con)
-                if _return:
-                    return _return
-            return None
-        # Cyclic-case
-        elif ent == curr_ent:
-            return None
-        # Edge-case
-        elif len(ent) == 1:
-            return None
-        # Advances "direction"
-        elif len(ent) > 2:
-            curr_ent = chain.chain[con.to_id]
-            break
+                subpath = run_subpath(chain, chain.chain[_con.to_id], subpath, _con)
+            return subpath
         else:
-            # Recursion
-            for _con in ent.cons:
+            nxt_ent = chain.chain[con.to_id]
+        # Edge-case
+        if len(nxt_ent) == 1:
+            return subpath
+        # Recursion
+        elif len(nxt_ent) > 2:
+            for _con in nxt_ent.cons:
                 if _con != con:
-                    _return = run_subpath(chain, ent, _con.to_id)
-                    if _return:
-                        return _return
+                    subpath = run_subpath(chain, nxt_ent, subpath, _con)
+        # Cyclic-case
+        if nxt_ent.id in subpath:
+            return subpath
         if failsafe > 100:
             raise IndexError("Too big of a chain: Too big subapath, malformed chain!")
 

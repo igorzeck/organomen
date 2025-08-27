@@ -1,5 +1,5 @@
 from base_structures import Pos
-from pathfinder import scout, _get_host
+from pathfinder import scout, _get_host, run_subpath
 from entities import Chain, Entity
 
 # TODO: Here might be better to pass pos as list of POS instead of ids
@@ -62,18 +62,21 @@ class Classifier:
     Classifier object for an atom
     """
     # - Class related -
-    def __init__(self, chain: Chain, ent: Entity):
+    def __init__(self, chain: Chain):
         self.chain: Chain = chain
-        
-        self.ent: Entity = ent
 
-        # Maybe look only "edge" cases?
-        self.host: Entity = _get_host(self.chain, self.ent)
-        
-        self.classification: tuple = (None, "Unknown")
+        # Already verified entities pool
+        self.stomped: set[int] = set()
 
-    def classifie(self):
-        self.root_question()
+    def classificate(self):
+        # Classification routine
+        for ent in self.chain:
+            if ent not in self.chain.main_chain:
+                # Then is good
+                print(f"\n\n{ent} - OBJ:", run_subpath(self.chain, ent, []))
+                classif: tuple = (None, "Unknown")
+        # For every atom runs the "root questuion"
+        # self.root_question()
     # - Classification logic - 
     # (tree-like function cascade)
     def root_question(self):
@@ -122,48 +125,6 @@ def _name_con_type(cons: list):
     if n2 == n3 == 0:
         infix += 'an'
     return infix
-
-
-# Will be more complicated for cyclic types...
-# For now it will return both the function NAME
-# def _name_functional(field, ids: dict[Pos], main_chain: list):
-#     # atoms_set = set()
-#     # atoms_list = []
-#     atoms_dict = {}
-#     for id in main_chain:
-#         pos = ids[id]
-#         el = field[pos.row][pos.col]
-#         if el in atoms_dict:
-#             atoms_dict[el].append(id)
-#         else:
-#             atoms_dict[el] = [id]
-#         # atoms_set.add(el)
-#         # atoms_list.append((el, pos))
-#     # Checks heteroathoms
-#     if len(atoms_dict) == 1:
-#         return 'o'
-#     # Separated function?
-#     # For now by hand
-#     # TODO: Separate into functions as its possible to have multiple functional groups at the same time!
-#     if 'O' in atoms_dict:
-#         # Checks postion of Oxygen(s)
-#         # Alcohol
-#         for pos_id in atoms_dict['O']:
-#             cons_list = scout(field, ids, pos_id, nxt_dir=False, con_value=True)
-#             if len(cons_list) >= 2:
-#                 # Assumes ceton for now
-#                 pass  # Ceton code...
-#             else:  # Sees connection type
-#                 nxt_id, con_value = cons_list[0]
-#                 nxt_pos = ids[nxt_id]
-#                 print(field[nxt_pos.row][nxt_pos.col], con_value)
-#                 if con_value == '1':
-#                     # can be acid too!
-#                     # TODO: Needs to check next pos to confirm
-#                     return 'ol'
-#                 elif con_value == '2':
-#                     return 'al'
-#     return 'o'
 
 
 def _name_functional(functional: dict[list[int]]):
@@ -284,9 +245,8 @@ def class_chain(chain: Chain):
     
     # Clasificates chain
     chain.functional = _get_class(chain)
-    for ent in chain:
-        _classfier = Classifier(chain, ent)
-        _classfier.classifie()
+    _classfier = Classifier(chain)
+    _classfier.classificate()
     # Makes chain
     cons = []
     old_pos = None
