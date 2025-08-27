@@ -166,6 +166,5 @@ class Chain:
     # - Functionalities -
     def __len__(self):
         return len(self.paths)
-    def __iter__(self):
-        for i in range(len(self.chain)):
-            yield self.chain[i]
+    def __getitem__(self, i: int):
+         return self.chain[i]

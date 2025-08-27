@@ -16,42 +16,37 @@ def _get_host(chain: Chain, ent: Entity):
     return run_subpath(chain, ent)
 
 
-def run_subpath(chain: Chain, ent: Entity, subpath: list[int], con: Connection = None):
+# TODO: Go to all ids not already in subpath list
+# If instead of recursion I use a stack of ids (FIFO)?
+def run_subpath(chain: Chain, ent: Entity):
     """
     Explore all connections directions
+    With stack of ids
     Stops if End of Path EOP, that is:
     - Finds itself (in a loop)
     - If finds an edge
     - If finds an main_chain atom (return it)
-    subpath is changed by reference
     """
-    nxt_ent = ent
     failsafe = 0
+    ents_pool: list[Entity] = [ent]
+    queue: list[Entity] = []  # Stack with ids by order
     while True:
-        subpath.append(ent)
-        # Found main path
-        if nxt_ent in chain.main_chain:
-            print("FIM")
-            return subpath
-            # return curr_ent
-        # First iteration
-        if not con:
-            for _con in ent:
-                subpath = run_subpath(chain, chain.chain[_con.to_id], subpath, _con)
-            return subpath
-        else:
-            nxt_ent = chain.chain[con.to_id]
+        # Updates queue
+        for con in ent:
+            nxt_ent = chain[con.to_id]
+            if nxt_ent not in ents_pool:
+                ents_pool.append(nxt_ent)
+                if nxt_ent in chain.main_chain:
+                    continue
+                queue.append(nxt_ent)
+        if not queue:
+            print("Fim!")
+            return tuple(ents_pool)
         # Edge-case
-        if len(nxt_ent) == 1:
-            return subpath
-        # Recursion
-        elif len(nxt_ent) > 2:
-            for _con in nxt_ent.cons:
-                if _con != con:
-                    subpath = run_subpath(chain, nxt_ent, subpath, _con)
-        # Cyclic-case
-        if nxt_ent.id in subpath:
-            return subpath
+        # Goes FIFO through queue
+        ent = queue.pop()
+
+        failsafe += 1
         if failsafe > 100:
             raise IndexError("Too big of a chain: Too big subapath, malformed chain!")
 

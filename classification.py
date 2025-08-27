@@ -66,15 +66,21 @@ class Classifier:
         self.chain: Chain = chain
 
         # Already verified entities pool
-        self.stomped: set[int] = set()
+        self.ents_pool: set[int] = set()
+        self.subgroups: list[tuple[Entity]] = []
 
     def classificate(self):
         # Classification routine
         for ent in self.chain:
-            if ent not in self.chain.main_chain:
-                # Then is good
-                print(f"\n\n{ent} - OBJ:", run_subpath(self.chain, ent, []))
-                classif: tuple = (None, "Unknown")
+            if (ent not in self.chain.main_chain)\
+                and\
+                (ent.id not in self.ents_pool):
+                _subgroups = run_subpath(self.chain, ent)
+                
+                for ent in _subgroups:
+                    self.ents_pool.add(ent.id)
+                self.subgroups.append(_subgroups)
+                # classif: tuple = (None, "Unknown")
         # For every atom runs the "root questuion"
         # self.root_question()
     # - Classification logic - 
