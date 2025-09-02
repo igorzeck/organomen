@@ -44,6 +44,8 @@ class Entity:
     def __eq__(self, value):
         if isinstance(value, int):
             return self.id == value
+        elif isinstance(value, str):
+            return self.el == value
         else:
             if len(self.cons) == len(value.cons):
                 val = (

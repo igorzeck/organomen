@@ -10,6 +10,9 @@ from entities import Chain, Entity
 # -- Naming --
 # - Name prefix -
 # - Constants -
+SIMPLE = '1'
+DOUBLE = '2'
+
 HETEROATOMS = [
     'F',
     'O',
@@ -67,30 +70,57 @@ class Classifier:
 
         # Already verified entities pool
         self.ents_pool: set[int] = set()
-        self.subgroups: list[tuple[Entity]] = []
+        # First subgroup is main chain itself
+        self.subgroups: list[tuple[Entity]] = [tuple(chain.main_chain)]
+
+        self.classif: dict = {}
 
     def classificate(self):
         # Classification routine
+        # Note que olha apenas aqueles fora do main chain...
         for ent in self.chain:
-            if (ent not in self.chain.main_chain)\
-                and\
-                (ent.id not in self.ents_pool):
-                _subgroups = run_subpath(self.chain, ent)
-                
-                for ent in _subgroups:
-                    self.ents_pool.add(ent.id)
-                self.subgroups.append(_subgroups)
-                # classif: tuple = (None, "Unknown")
-        # For every atom runs the "root questuion"
-        # self.root_question()
+            if (ent.id not in self.ents_pool):
+                if (ent not in self.chain.main_chain):
+                    # Maybe I should treat the main chain as a subgroup!
+                    _subgroups = run_subpath(self.chain, ent)
+                    
+                    for ent in _subgroups:
+                        self.ents_pool.add(ent.id)
+                    self.subgroups.append(_subgroups)
+        # Root question logic
+        for subg in range(len(self.subgroups)):
+            self.root_question(subg)
     # - Classification logic - 
     # (tree-like function cascade)
-    def root_question(self):
-        # 1. Is inside main path (chain)?
-        if self.ent in self.chain.main_chain:
-            print(f"{self.ent} is inside main chain!")
+    # I think is better to have an if forest tbh...
+    def root_question(self, subg_id: int):
+        # 1. Is it an hteroatom?
+        if any([ent.el in HETEROATOMS for ent in self.subgroups[subg_id]]):
+            print(f"{self.subgroups[subg_id]} has an heteroatom!")
+            self.is_oxy(subg_id)
         else:
-            print(f"{self.ent} is NOT inside main chain!")
+            print(f"{self.subgroups[subg_id]} does NOT have an heteroatom!")
+    
+    def is_oxy(self, subg_id: int):
+        if any([ent.el == 'O' for ent in self.subgroups[subg_id]]):
+            self.is_oxy_2(subg_id)
+    
+    def is_oxy_2(self, subg_id: int):
+        for ent in self.subgroups[subg_id]:
+            if ent == 'O':
+                _host = _get_host(self.chain.main_chain, ent)
+                if ent != _host:
+                    # print(ent.cons, _host)
+                    print(_host, end="\n\n")
+                    if any([((con.type == SIMPLE))\
+                            for con in ent.cons]):
+                        print('Is an alcohol!')
+                    if any([(con.to_id == _host.id)\
+                             and\
+                            (con.type == DOUBLE)\
+                            for con in ent.cons]):
+                        print('Is an aldehyde!')
+
         
 # - Function -
 # - Main chain naming -
@@ -201,7 +231,7 @@ def _classif_atom(field: list[Pos], ids, pos_id):
         elif c_alone:
             func_name = 'Ceton'
     elif c_n_double == 0:
-        func_name = "Alchol"
+        func_name = "Alcohol"
 
     return func_name, host_id
 

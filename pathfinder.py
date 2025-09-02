@@ -8,12 +8,16 @@ from entities import Chain, Entity, Connection
 # Then: Connections
 # Then: size
 # In this order!
-def _get_host(chain: Chain, ent: Entity):
+def _get_host(main_chain: list[Entity], ent: Entity):
     """
-    Return the host - atom inside main path - of the entity
+    Return the host - atom inside main path - connected to the entity
     If it doesn't have an host, return itself
     """
-    return run_subpath(chain, ent)
+    if ent in main_chain:
+        return ent
+    for el in main_chain:
+        if any([el.id == con.to_id for con in ent.cons]):
+            return el
 
 
 # TODO: Go to all ids not already in subpath list
@@ -40,7 +44,6 @@ def run_subpath(chain: Chain, ent: Entity):
                     continue
                 queue.append(nxt_ent)
         if not queue:
-            print("Fim!")
             return tuple(ents_pool)
         # Edge-case
         # Goes FIFO through queue
