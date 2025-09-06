@@ -1,3 +1,9 @@
+# CLassification is done in 4 steps:
+# 1. Atom by atom
+# 2. Group by group
+# 3. Host by Host (plus its groups)
+# 4. Entire chain
+# -- Imports --
 from base_structures import Pos
 from pathfinder import scout, _get_host, run_subpath
 from entities import Chain, Entity
@@ -18,6 +24,12 @@ HETEROATOMS = [
     'O',
     'N'
 ]
+
+# Functional look-up table with composite key index
+functional_sub = {
+    'Hydrocarbon':'',
+    'Alcohol':'Alcohol'
+}
 
 # Relative to N of Cs in main chain
 PREFIXES = [
@@ -75,9 +87,11 @@ class Classifier:
 
         self.classif: dict = {}
 
-    def classificate(self):
-        # Classification routine
-        # Note que olha apenas aqueles fora do main chain...
+        # Function call
+        self._define_subgroups()
+    
+    # - Chemical logic -
+    def _define_subgroups(self):
         for ent in self.chain:
             if (ent.id not in self.ents_pool):
                 if (ent not in self.chain.main_chain):
@@ -87,9 +101,12 @@ class Classifier:
                     for ent in _subgroups:
                         self.ents_pool.add(ent.id)
                     self.subgroups.append(_subgroups)
-        # Root question logic
-        for subg in range(len(self.subgroups)):
-            self.root_question(subg)
+
+    def classificate(self):
+        # Classification routine
+        # 1. Atom by atom
+        
+        
     # - Classification logic - 
     # (tree-like function cascade)
     # I think is better to have an if forest tbh...
