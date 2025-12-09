@@ -105,6 +105,7 @@ class Classifier:
     def classificate(self):
         # Classification routine
         # 1. Atom by atom
+        pass
         
         
     # - Classification logic - 
@@ -246,7 +247,7 @@ def _classif_atom(field: list[Pos], ids, pos_id):
             else:
                 func_name = 'Acid'
         elif c_alone:
-            func_name = 'Ceton'
+            func_name = 'Keton'
     elif c_n_double == 0:
         func_name = "Alcohol"
 

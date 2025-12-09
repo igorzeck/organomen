@@ -143,29 +143,86 @@ def run_path(chain: Chain,
 # Obsolet
 def get_sub_groups(chain: Chain):
     # Get substitutive groups
-    Tto_highlight: Pos = []
+    to_highlight: Pos = []
     groups: list[list[Entity]] = []
     for ent in chain.main_chain:
         # Iterates through all connections outside main_chain
-        for con in ent.cons:
-            if con.to_id not in chain.main_chain:
+        for con in ent:
+            if con.to_id not in chain.main_path:
                 # Follows lead
-                groups.append(follow_path(chain.chain, con.to_id, con.dir))
-                print(groups)
+                groups.append(follow_subpath(chain.chain, chain.main_path, [], con.dir, con.to_id))
+                print("Captured group:\n",groups)
 
         if any([con.to_id not in chain.main_path for con in ent.cons]):
-            Tto_highlight.append(chain.id_pool[ent.id])
-            # print(ent)
-    print(Tto_highlight)
-    print_field(chain.field, Tto_highlight)
+            to_highlight.append(chain.id_pool[ent.id])
+    print("Highights:", to_highlight)
+    print_field(chain.field, to_highlight, highlight_color_only=True)
 
 
-def follow_path(chain_path: list[Entity], to_id: int, dir: int):
-    ent = chain_path[to_id]
-    pos_id = to_id
-    while len(ent) > 1 and pos_id not in chain_path:
+# TODO: Generalize as the main pathfinder?
+def follow_subpath(chain: list[Entity], main_path: list[Entity], group: list[Entity], origin_dir: int, curr_id: int, cont: int = 0):
+    """
+    Follow subpath recursively (at each junction) until
+    all entities outside of main_path are in group
+    
+    :param chain: Chain with all entities
+    :type chain: list[Entity]
+    :param main_path: Main path (acts as mask to keep on group)
+    :type main_path: list[Entity]
+    :param group: Group of unique entities on this. Needs to be 
+    inserted initally as a empty list for safe-copy reasons
+    :type group: list[Entity]
+    :param dir: Origin direction (forbidden on first iteration)
+    :type dir: int
+    :return: Returns final group
+    :rtype: list[Entity]
+    """
+    print("Following subpath!")
+    ent = chain[curr_id]
+
+    dir = -origin_dir
+
+    _cycled = ent in group
+    _back_at_main = ent in main_path
+
+    while not _cycled and not _back_at_main:
+        # Failsafe
+        cont += 1
+        if cont >= MAX_ITER:
+            break
+
+        group.append(ent)
+        print("i", cont)
         print(ent)
-        return ent
+
+        # - Advance -
+        if len(ent) == 2:
+            # If there is two directions, go to the not-origin direction
+            for con in ent:
+                if con.dir != dir:
+                    to_id = ent.at_dir(con.dir)
+        elif len(ent) > 2:
+            # Recursion for the conjunction
+            for con in ent:
+                if con.dir != dir:
+                    new_ent_id = ent.at_dir(con.dir)
+                    group = follow_subpath(chain, main_path, group, con.dir, new_ent_id, cont)
+            break
+        elif len(ent) <= 1:
+            # End of path
+            break
+
+        # - Additional finishing conditions -
+        # Id not in chain (-1)
+        if to_id >= 0:
+            ent = chain[to_id]
+        else:
+            break
+
+        _cycled = ent in group
+        _back_at_main = ent in main_path
+
+    return group
 
 
 # TODO: Insert chain as a parameter

@@ -35,6 +35,21 @@ class Entity:
         self.id = ent_id
         self.el = el
         self.cons = cons
+    
+    def at_dir(self, dir_to: int):
+        """
+        Finds id (if any) to direction being compared
+        
+        :param dir_from: Direction of comparison
+
+        Returns id if found or -1 if not
+        """
+        for con in self:
+            if con.dir == dir_to:
+                # Found
+                return con.to_id
+        # Not found
+        return -1
     # - Visual -
     def __str__(self):
         return f"({self.id}: {self.el} - {self.cons})"

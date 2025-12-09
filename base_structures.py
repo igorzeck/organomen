@@ -42,7 +42,7 @@ def abrir_arq_chain(nome_arq):
 # - Visual -
 # TODO: Still using field I see...
 # TODO: Change it to show on chain path instead
-def print_field(field: list[list], highlights: tuple = [Pos(-1, -1)], zeros_repr='.'):
+def print_field(field: list[list], highlights: tuple = [Pos(-1, -1)], highlight_color_only = False, zeros_repr='.'):
     """
     Prints the 2D matrix representation
 
@@ -59,12 +59,13 @@ def print_field(field: list[list], highlights: tuple = [Pos(-1, -1)], zeros_repr
             if el == '0':
                 p_el = zeros_repr.ljust(3)
             elif curr_pos in highlights:
-                if curr_pos == highlights[0]:
-                    # Middle
-                    el = 'i' + el
-                elif curr_pos == highlights[-1]:
-                    # Start
-                    el = 'f' + el
+                if not highlight_color_only:
+                    if curr_pos == highlights[0]:
+                        # Start
+                        el = 'i' + el
+                    elif curr_pos == highlights[-1]:
+                        # End
+                        el = 'f' + el
                 p_el = "\033[34m" + el.ljust(3) + "\033[0m"
             else: 
                 p_el = el.ljust(3)
@@ -91,6 +92,9 @@ TRIPLE = 3
 QUADRUPLE = 4
 
 # Coordinates associated with each connection
+# -4 -3 -2
+# -1  C  1
+#  2  3  4
 CD_OFFS = {
     -4:Pos(-1, -1),
     -3:Pos(-1, 0),
@@ -101,3 +105,6 @@ CD_OFFS = {
     3:Pos(1, 0),
     4:Pos(1, 1),
 }
+
+# Failsafe for iterative routines
+MAX_ITER = 21

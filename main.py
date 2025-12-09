@@ -1,12 +1,10 @@
-# Test file for the chain separation algorithm
+# Test file for the chain resolution algorithm
 # -- Definition --
-# Stubs are parts of a path
-
-# A path is a collection of carbon starting
+# Stubs: parts of a path
+# Path: is a collection of carbon starting
 # and ending with a one connection carbon
 # or with the same 2 carbons on the path
-
-# A chain is made of all unique combinations
+# Chain: made of all unique combinations
 # of paths, which in turn define how
 # the chain is named
 
@@ -27,12 +25,10 @@ from entities import *
 
 def main():
     chain_path = "Chains/simple.field"
+
     # Pathfinding
-    # print(Entity(1, 'C', [Connection(1, 3, 1, 1), Connection(1, 2, 2, 1)]))
     c_main = Chain(chain_path)
     print(c_main.chain)
-    # for _c in c_main.chain:
-    #     print(_c)
     c_main = run_chain(c_main.field)
     class_chain(c_main)
     print(c_main)
