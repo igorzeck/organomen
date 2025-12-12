@@ -18,6 +18,8 @@ def _get_host(main_chain: list[Entity], ent: Entity):
     for el in main_chain:
         if any([el.id == con.to_id for con in ent.cons]):
             return el
+    # Returns itself if no host in main path (e.g. if "host" on subgroup)
+    return ent
 
 
 # TODO: Go to all ids not already in subpath list
@@ -39,10 +41,14 @@ def run_subpath(chain: Chain, ent: Entity):
         for con in ent:
             nxt_ent = chain[con.to_id]
             if nxt_ent not in ents_pool:
-                ents_pool.append(nxt_ent)
                 if nxt_ent in chain.main_chain:
+                    # For now assumes its the host and put it on 0 index!
+                    # TODO: handle multiple hosts
+                    ents_pool.insert(0,nxt_ent)
                     continue
-                queue.append(nxt_ent)
+                else:
+                    ents_pool.append(nxt_ent)
+                    queue.append(nxt_ent)
         if not queue:
             return tuple(ents_pool)
         # Edge-case
@@ -251,4 +257,4 @@ def run_chain(field):
     # chain.groups = get_sub_groups(chain)
     get_sub_groups(chain)
 
-    return chain  
+    return chain

@@ -108,7 +108,7 @@ class Chain:
         # Maybe instead of this, I could get alternatives after...
         # self.paths: list[int] = []
         # List of indexes for the main paths (name-definer)
-        self.main_path: int = []
+        self.main_path: list[int] = []
 
         # ~ Test ~
         self.chain: list[Entity] = []
@@ -153,6 +153,16 @@ class Chain:
                     pos_pool.append(Pos(row, col))
         return tuple(pos_pool)
     
+    # - Chemistry related -
+    def get_main_path_id(self, pool_id):
+        """
+        Get main path id (starting from iC to fC following main path)
+        
+        :param self: Chain object
+        :param pool_id: The id of the entity within the self (chain) id_pool
+        """
+        return self.main_path.index(pool_id) + 1
+
     # - Element-wise -
     # def add_path(self, path):
     #     """

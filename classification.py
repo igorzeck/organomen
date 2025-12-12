@@ -61,7 +61,9 @@ SUFIXES = {
     'Aldehyde':'al',
     'Acid':'oico',
     'Keton':'ona',
-    'Ether':'ico'
+    'Ether':'ico',
+    # Radicals
+    'Radical':'hyl'
 }
 
 CON_Q = [
@@ -72,6 +74,7 @@ CON_Q = [
     ]
 # For now infixes are not included
 # - Class -
+# Necessary to find a way to integrate this
 class Classifier:
     """
     Classifier object for an atom
@@ -82,6 +85,7 @@ class Classifier:
 
         # Already verified entities pool
         self.ents_pool: set[int] = set()
+
         # First subgroup is main chain itself
         self.subgroups: list[tuple[Entity]] = [tuple(chain.main_chain)]
 
@@ -90,35 +94,55 @@ class Classifier:
         # Function call
         self._define_subgroups()
     
+    def _append_classif(self, _class: str, subg_id: int):
+        if _class in self.classif:
+            self.classif[_class].append(subg_id)
+        else:
+            self.classif[_class] = [subg_id]
+
     # - Chemical logic -
     def _define_subgroups(self):
         for ent in self.chain:
             if (ent.id not in self.ents_pool):
                 if (ent not in self.chain.main_chain):
                     # Maybe I should treat the main chain as a subgroup!
-                    _subgroups = run_subpath(self.chain, ent)
+                    _subgroup = run_subpath(self.chain, ent)
                     
-                    for ent in _subgroups:
+                    for ent in _subgroup:
                         self.ents_pool.add(ent.id)
-                    self.subgroups.append(_subgroups)
+                    
+                    self.subgroups.append(_subgroup)
+                    print(_subgroup)
+                    
+        # ID 0 is the main chain!
+        for subg_id in range(len(self.subgroups)):
+            self.root_question(subg_id)
 
-    def classificate(self):
-        # Classification routine
-        # 1. Atom by atom
-        pass
-        
-        
+        print("Classifications:", self.classif)
+
     # - Classification logic - 
     # (tree-like function cascade)
     # I think is better to have an if forest tbh...
     def root_question(self, subg_id: int):
         # 1. Is it an hteroatom?
         if any([ent.el in HETEROATOMS for ent in self.subgroups[subg_id]]):
-            print(f"{self.subgroups[subg_id]} has an heteroatom!")
+            # print(f"{self.subgroups[subg_id]} has an heteroatom!")
+            # If it is
             self.is_oxy(subg_id)
         else:
-            print(f"{self.subgroups[subg_id]} does NOT have an heteroatom!")
+            # print(f"{self.subgroups[subg_id]} does NOT have an heteroatom!")
+            # If it isn't, is it the main chain?
+            if subg_id == 0:
+                # If so, then is a standard hydrocarbon chain
+                self._append_classif('Hydrocarbon', subg_id)
+            else:
+                # If not, classificate it
+                self.which_radical(subg_id)
+                self._append_classif('Radical', subg_id)
     
+    def which_radical(self, subg_id: int):
+        pass
+
     def is_oxy(self, subg_id: int):
         if any([ent.el == 'O' for ent in self.subgroups[subg_id]]):
             self.is_oxy_2(subg_id)
@@ -128,18 +152,20 @@ class Classifier:
             if ent == 'O':
                 _host = _get_host(self.chain.main_chain, ent)
                 if ent != _host:
-                    # print(ent.cons, _host)
                     print(_host, end="\n\n")
                     if any([((con.type == SIMPLE))\
                             for con in ent.cons]):
-                        print('Is an alcohol!')
+                        # print('Is an alcohol!')
+                        # self.classif[subg_id] = [_host.id, 'Alcohol']
+                        self._append_classif('Alcohol', subg_id)
                     if any([(con.to_id == _host.id)\
                              and\
                             (con.type == DOUBLE)\
                             for con in ent.cons]):
-                        print('Is an aldehyde!')
+                        # print('Is an aldehyde!')
+                        self._append_classif('Aldehyde', subg_id)
 
-        
+
 # - Function -
 # - Main chain naming -
 def _name_size_pref(n_main: int):
@@ -186,28 +212,59 @@ def _name_functional(functional: dict[list[int]]):
     for funct in functional:
         # Checks size
         funct_info = functional[funct]
-        n_ent = len(funct_info)
-        if n_ent >= 2:
+        n_gps = len(funct_info)
+        if n_gps >= 2:
             str_func = [str(_pos) for _pos in funct_info]
             n_str = ''
-            if n_ent < len(CON_Q):
-                n_str += CON_Q[n_ent]
+            if n_gps < len(CON_Q):
+                n_str += CON_Q[n_gps]
             final_str += '-' + ','.join(str_func) + '-' + n_str
         final_str += SUFIXES[funct]
     return final_str
-        
+
+def _name_radical(classific: Classifier):
+    final_str = ''
+
+    if 'Radical' in classific.classif:
+        gp = 'Radical'
+        gp_ids = classific.classif[gp]
+        n_gps = len(gp_ids)
+        print(f"Type: {gp} | n: {gp_ids}")
+        if n_gps >= 2:
+            print("Multiple of same type!")
+            str_func = [str(classific.chain.get_main_path_id(_pos)) for _pos in gp_ids]
+            n_str = ''
+            if n_gps < len(CON_Q):
+                n_str += CON_Q[n_gps]
+            final_str += '-' + ','.join(str_func) + '-' + n_str
+        else:
+            print("One of each type!")
+        # TODO: Make it more sophsiticated
+        # TODO: Is possible to have multipe radical with different lengths!
+        # TODO: Handle consonantes with dashes
+        # For now only count atom in the radical subgroup!
+        n_els = len(classific.subgroups[classific.classif[gp][0]])
+        final_str += PREFIXES[n_els] + SUFIXES['Radical']
+    
+    return final_str
+            
+
 # TODO: Make id go over the entire chain, not only main one
 def _classif_atom(field: list[Pos], ids, pos_id):
     pos = ids[pos_id]
     el = field[pos.row][pos.col]
     info = scout(field, ids, pos_id)
     els = [field[ids[id[0]].row][ids[id[0]].col] for id in info]
-    
-    
-    # - Oxygen -
-    if el != 'O':
+
+    if el != 'O' and el !='C':
         return 'Unsupported!', pos_id
     
+    # - Radicals -
+    if (el == 'C'):
+        if els.count('C') > 2:
+            return 'Radical', pos_id
+
+    # - Oxygen -
     # 1. How many Cs
     if els.count('C') > 1:
         return 'Ether', pos_id
@@ -216,6 +273,8 @@ def _classif_atom(field: list[Pos], ids, pos_id):
     host_info = []
     host_id = -1
 
+    # TODO: Fix host id being different from real host if it is in a subgroup
+    # Treating subgroup as a function would be nice (including ignoring its elements for classification)
     for id in info[0]:
         nxt_info = scout(field, ids, id)
         for nxt_id in nxt_info:
@@ -266,7 +325,9 @@ def _get_class(chain: Chain):
             atoms_dict[el].append(pos_id)
         else:
             atoms_dict[el] = [pos_id]
+    
     print(atoms_dict)
+
     # Decides in its functional class
     if any(el == 'C' for el in atoms_dict):
         if all(el == 'C' for el in atoms_dict):
@@ -282,10 +343,11 @@ def _get_class(chain: Chain):
         if el in atoms_dict:
            # Note that it uses the host ID
            _class, _host_id = _classif_atom(field, chain.id_pool, pos_id)
+           _host_id_path = chain.get_main_path_id(_host_id)
            if _class in functionals:
-               functionals[_class].add(_host_id)
+               functionals[_class].add(_host_id_path)
            else:
-               functionals[_class] = {_host_id}
+               functionals[_class] = {_host_id_path}
 
     return functionals
 
@@ -293,14 +355,16 @@ def _get_class(chain: Chain):
 def class_chain(chain: Chain):
     if not chain.main_path:
         return "Chain is empty!"
-    prefix = _name_size_pref(len(chain.main_path))
-    if not prefix:
-        return "Chain is too big!"
-    
     # Clasificates chain
     chain.functional = _get_class(chain)
     _classfier = Classifier(chain)
-    _classfier.classificate()
+
+    prefix = _name_radical(_classfier)
+    prefix += _name_size_pref(len(chain.main_path))
+
+    if not prefix:
+        return "Chain is too big!"
+
     # Makes chain
     cons = []
     old_pos = None
@@ -312,8 +376,10 @@ def class_chain(chain: Chain):
             con_pos = old_pos + norm_dif
             cons.append(chain.field[con_pos.row][con_pos.col])
         old_pos = pos
-    # TODO: Use connections already stored in chaib object?
+    
+    # TODO: Use connections already stored in chain object?
     infix = _name_con_type(cons)
+    # sufix = _name_func_class(_classfier)
     sufix = _name_functional(chain.functional)
 
     # TODO: Hopefully temporary
