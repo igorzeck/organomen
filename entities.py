@@ -175,7 +175,8 @@ class Chain:
     #         if (len(i_path) == len(path)) and (sorted(i_path) != sorted(path)):
     #             self.paths.append(path)
     #             break
-    
+    def get_main_path_size(self):
+        return len(self.main_path)
     # - Visual -
     def print_ids(self):
         mock_field = [[0 for _ in range(self.n_col)] for __ in range(self.n_row)]
@@ -192,6 +193,6 @@ class Chain:
     
     # - Functionalities -
     def __len__(self):
-        return len(self.paths)
+        return len(self.main_chain)
     def __getitem__(self, i: int):
          return self.chain[i]

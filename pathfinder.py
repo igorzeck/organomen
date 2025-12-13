@@ -71,6 +71,7 @@ def _is_higher(best: list, contender: list):
         return False
 
 
+# TODO: Make it follows all rules for defining main chain!
 def run_path(chain: Chain,
              start_pos_id: int,
              path_stub: list,

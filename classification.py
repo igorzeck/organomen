@@ -33,6 +33,7 @@ functional_sub = {
 
 # Relative to N of Cs in main chain
 PREFIXES = [
+    '',
     'met',
     'et',
     'prop',
@@ -54,9 +55,17 @@ PREFIXES = [
     'nonadec',
     'icos'
 ]
+
+INFIXES = [
+    'UNDER',
+    'an',
+    'en',
+    'yn'
+]
+
 # Relative to chain functional class
 SUFIXES = {
-    'Hydrocarbon':'o',
+    'Hydrocarbon':'e',
     'Alcohol':'ol',
     'Aldehyde':'al',
     'Acid':'oico',
@@ -170,12 +179,13 @@ class Classifier:
 # - Main chain naming -
 def _name_size_pref(n_main: int):
     if n_main <= len(PREFIXES):
-        return PREFIXES[n_main - 1]
+        return PREFIXES[n_main]
     else:
         return None
 
 
 def _name_con_type(cons: list):
+    # For now always show position, even when redundant!
     con_qte = [
         '',
         'adi',
@@ -187,23 +197,21 @@ def _name_con_type(cons: list):
     # Indexes within chain
     i2 = [str(i + 1) for i, con in enumerate(cons) if con == '2']
     i3 = [str(i + 1) for i, con in enumerate(cons) if con == '3']
-    # n2 = cons.count('2')
-    # n3 = cons.count('3')
     n2 = len(i2)
     n3 = len(i3)
 
     # This way 'enin' can occur naturally
-    # TODO: Change it so it's only between carbon to carbon connections
+    # TODO: Correct it so it's only between carbon to carbon connections
     if n2 != 0:
         if len(con_qte) >= n2:
             infix += con_qte[n2 - 1]
-        infix += '-' + ','.join(i2) + '-' + 'en'
+        infix += '-' + ','.join(i2) + '-' + INFIXES[2]
     if n3 != 0:
         if len(con_qte) >= n3:
             infix += con_qte[n3 - 1]
-        infix += '-' + ','.join(i3) + '-' + 'in'
+        infix += '-' + ','.join(i3) + '-' + INFIXES[3]
     if n2 == n3 == 0:
-        infix += 'an'
+        infix += INFIXES[1]
     return infix
 
 
@@ -214,38 +222,67 @@ def _name_functional(functional: dict[list[int]]):
         funct_info = functional[funct]
         n_gps = len(funct_info)
         if n_gps >= 2:
-            str_func = [str(_pos) for _pos in funct_info]
+            func_pos = [str(_pos) for _pos in funct_info]
             n_str = ''
             if n_gps < len(CON_Q):
                 n_str += CON_Q[n_gps]
-            final_str += '-' + ','.join(str_func) + '-' + n_str
+            final_str += '-' + ','.join(func_pos) + '-' + n_str
         final_str += SUFIXES[funct]
     return final_str
 
 def _name_radical(classific: Classifier):
     final_str = ''
+    # Apparently always specify the position of the radical!
 
     if 'Radical' in classific.classif:
         gp = 'Radical'
-        gp_ids = classific.classif[gp]
-        n_gps = len(gp_ids)
-        print(f"Type: {gp} | n: {gp_ids}")
-        if n_gps >= 2:
-            print("Multiple of same type!")
-            str_func = [str(classific.chain.get_main_path_id(_pos)) for _pos in gp_ids]
-            n_str = ''
-            if n_gps < len(CON_Q):
-                n_str += CON_Q[n_gps]
-            final_str += '-' + ','.join(str_func) + '-' + n_str
-        else:
-            print("One of each type!")
-        # TODO: Make it more sophsiticated
-        # TODO: Is possible to have multipe radical with different lengths!
-        # TODO: Handle consonantes with dashes
+
         # For now only count atom in the radical subgroup!
-        n_els = len(classific.subgroups[classific.classif[gp][0]])
-        final_str += PREFIXES[n_els] + SUFIXES['Radical']
-    
+        # Separate elements into different types
+        radical_types: dict = {}
+
+        # Fills radical_types (based on size)
+        for i_radical in classific.classif[gp]:
+            # Note that i_subg is also the id for the host of the group!
+            # -1 to ignore 'host'
+            n_els = len(classific.subgroups[i_radical]) - 1
+            if n_els in radical_types:
+                radical_types[n_els].append(i_radical)
+            else:
+                radical_types[n_els] = [i_radical]
+       
+        # Sorts radical_types ids in their names alphabetical order
+        func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
+        # Zips names with their values
+        pair_names = list(zip(func_names, radical_types.keys()))
+        # Orders based on first element (a.k.a its name)
+        pair_names.sort(key=lambda el: el[0])
+        # Gets last element (id)
+        # Note that the multiplier prefixes do not count on the alphabetical order!
+
+        print("Pares:", pair_names)
+
+        for r_prefix, i_radical in pair_names:
+            # Use radical types to name the prefixes
+            # Position
+            rt_len = len(radical_types[i_radical])
+
+            print(f"Type: {i_radical} | n: {rt_len}")
+            
+            # The zero index is the 'host'
+            hosts_ids = [_id for _id in [classific.subgroups[_i_subg][0].id for _i_subg in radical_types[i_radical]]]
+            func_pos = [str(classific.chain.get_main_path_id(_pos)) for _pos in hosts_ids]
+            
+            n_str = ''
+            if rt_len < len(CON_Q):
+                n_str += CON_Q[rt_len]
+            if final_str:
+                final_str += '-'
+            final_str += ','.join(func_pos) + '-' + n_str
+
+            # Functional name
+            final_str += r_prefix
+            final_str += SUFIXES[gp]
     return final_str
             
 
@@ -360,7 +397,15 @@ def class_chain(chain: Chain):
     _classfier = Classifier(chain)
 
     prefix = _name_radical(_classfier)
-    prefix += _name_size_pref(len(chain.main_path))
+
+    # Adds a '-' if first word is a consonant
+    main_prefix = _name_size_pref(len(chain.main_path))
+
+    # Needs to be better understood when to use the hyphen!
+    # if not main_prefix[0] in ['a', 'e', 'i', 'o', 'u']:
+    #     prefix += '-'
+    
+    prefix += main_prefix
 
     if not prefix:
         return "Chain is too big!"
@@ -379,6 +424,7 @@ def class_chain(chain: Chain):
     
     # TODO: Use connections already stored in chain object?
     infix = _name_con_type(cons)
+
     # sufix = _name_func_class(_classfier)
     sufix = _name_functional(chain.functional)
 

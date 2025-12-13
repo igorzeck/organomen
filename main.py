@@ -17,6 +17,9 @@
 # TODO: Make it detect edges that are only on Carbon!
 # TODO: Shy away from field!!! Using chain representation instead
 # TODO: Make it so that main.chain is ordered from carbon 1 to n (in naming order)
+# TODO: Support for comments on field files
+# TODO: Support for functional naming (e.g. for alcohols)
+# TODO: Make rules for hyphens better!
 # -- Imports --
 from pathfinder import run_chain
 from classification import class_chain
@@ -24,7 +27,7 @@ from entities import *
 
 
 def main():
-    chain_path = "Chains/simple.field"
+    chain_path = "Chains/metylpropene.field"
 
     # Pathfinding
     c_main = Chain(chain_path)
