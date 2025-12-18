@@ -69,9 +69,10 @@ class Entity:
         else:
             if len(self.cons) == len(value.cons):
                 val = (
-                    (self.id == value.id) and
-                    (self.el == value.el) and
-                    (all([self.cons[i] == value.cons[i] for i in range(len(self.cons))]))
+                    (self.id == value.id) # and
+                    # (self.el == value.el) and
+                    # (all([self.cons[i] == value.cons[i] for i in range(len(self.cons))]))
+                    # Commented because all those calclations are somewhat redundant!
                 )
                 return val
             else:
@@ -138,6 +139,10 @@ class Chain:
             self.chain.append(Entity(id_pos, el_str, cons))
             if el_str == 'C' and c_count <= 1:
                 self.edges.append(id_pos)
+        # For now, if edgless - and there is more than 1 carbon -
+        # the first position is given the honour of "edge"
+        if self.edges == [] and len(self.id_pool) > 0:
+            self.edges.append(0)
         # - Chemical properties -
         self.name = ""
         self.functional = ""

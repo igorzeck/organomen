@@ -99,7 +99,7 @@ class Classifier:
         # First subgroup is main chain itself
         self.subgroups: list[tuple[Entity]] = [tuple(chain.main_chain)]
 
-        self.classif: dict = {}
+        self.classif: dict = {}  # TODO: initalize with some functionals keys (but empty sets)
 
         # Function call
         self._define_subgroups()
@@ -134,6 +134,9 @@ class Classifier:
     # (tree-like function cascade)
     # I think is better to have an if forest tbh...
     def root_question(self, subg_id: int):
+        # 0. Is a cycle?
+        if (self.subgroups[subg_id][0] == self.subgroups[subg_id][-1]):
+            self._append_classif('Cycle', subg_id)
         # 1. Is it an hteroatom?
         if any([ent.el in HETEROATOMS for ent in self.subgroups[subg_id]]):
             # print(f"{self.subgroups[subg_id]} has an heteroatom!")
@@ -234,7 +237,6 @@ def _name_functional(functional: dict[list[int]]):
 def _name_radical(classific: Classifier):
     final_str = ''
     # Apparently always specify the position of the radical!
-
     if 'Radical' in classific.classif:
         gp = 'Radical'
 
@@ -281,9 +283,13 @@ def _name_radical(classific: Classifier):
                 final_str += '-'
             final_str += ','.join(func_pos) + '-' + n_str
 
-            # Functional name
+            # - Functional name -
+            if 'Cycle' in classific.classif:
+                if i_radical in classific.classif['Cycle']:
+                    final_str += 'cycle'
             final_str += r_prefix
             final_str += SUFIXES[gp]
+    
     return final_str
             
 
@@ -369,12 +375,13 @@ def _get_class(chain: Chain):
     # Decides in its functional class
     if any(el == 'C' for el in atoms_dict):
         if all(el == 'C' for el in atoms_dict):
+            # functionals['Hydrocarbon'] = {chain.main_path[0]}
             return {'Hydrocarbon': {chain.main_path[0]}}
         else:
             atoms_dict.pop('C')
     else:
         return "not organic"
-    
+
     # Heteroatoms
     for pos_id, pos in enumerate(chain.id_pool):
         el = field[pos.row][pos.col]
@@ -399,8 +406,14 @@ def class_chain(chain: Chain):
 
     prefix = _name_radical(_classfier)
 
+    # If is a cycle (main chain)
+    if 'Cycle' in _classfier.classif:
+        if 0 in _classfier.classif['Cycle']:
+            prefix += 'cycle'
+
     # Adds a '-' if first word is a consonant
-    main_prefix = _name_size_pref(len(chain.main_path))
+    # For now only look into unique ids (sets) as its possible to have cycles!
+    main_prefix = _name_size_pref(len(set(chain.main_path)))
 
     # Needs to be better understood when to use the hyphen!
     # if not main_prefix[0] in ['a', 'e', 'i', 'o', 'u']:

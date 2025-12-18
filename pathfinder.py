@@ -319,11 +319,10 @@ def run_chain(field):
         print_field(field, [chain.id_pool[id] for id in chain.main_path])
     else:
         print("Empty field!") 
-    # ~ Test ~
+    # Elements info
     for pos_id in chain.main_path:
         chain.main_chain.append(chain.chain[pos_id])
 
-    # chain.groups = get_sub_groups(chain)
     get_sub_groups(chain)
 
     return chain

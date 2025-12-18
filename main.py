@@ -8,6 +8,7 @@
 # of paths, which in turn define how
 # the chain is named
 
+# TODO: Refactor docstring for functions
 # TODO: Make part division for subnaming
 # TODO: make unique hold only unique paths
 # TODO: Chain object can be classified as it is read
@@ -29,7 +30,7 @@ from entities import *
 
 
 def main():
-    chain_path = "Chains/p70Mirror.field"
+    chain_path = "Chains/cyclepentane.field"
 
     # Pathfinding
     c_main = Chain(chain_path)
