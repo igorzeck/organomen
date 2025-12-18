@@ -16,13 +16,17 @@ def _is_inside(pos: Pos, n_row:int, n_col:int):
 # Those params are kinda cluttered!
 def scout(field, pos_pool: tuple[Pos], pos_id: int, nxt_id = True, nxt_dir = False, nxt_con_val = False, nxt_str = False):
     """
-    Scouts the vicinity of an given position
-    field: Chain field
-    ids: Chain tuple containing a table of ids to postion in the field
-    pos_id: Pos id to investigate around
-    direction: If True returns direction
-    con_value: If true returns connection value
-    returns: list of a tuple (package) with up to the following elements (nxt_id, dir, type)
+    "Looks around" target element within a field
+    
+    :param field: Field containing string of elements
+    :param pos_pool: Pool of position ids
+    :type pos_pool: tuple[Pos]
+    :param pos_id: Id (within pos pool) of the current element
+    :type pos_id: int
+    :param nxt_id: If true the return pakcage contains the next element id
+    :param nxt_dir: If true the return pakcage contains the direction integer
+    :param nxt_con_val: If true the return pakcage contains the next type integer
+    :param nxt_str: If true the return pakcage contains the next element string
     """
     nxt_el_l = []
     for dir in CD_OFFS:
@@ -54,7 +58,7 @@ def scout(field, pos_pool: tuple[Pos], pos_id: int, nxt_id = True, nxt_dir = Fal
                 if nxt_dir:
                     _package.append(dir)
                 if nxt_con_val:
-                    _package.append(next_con)
+                    _package.append(int(next_con))
                 if nxt_str and nxt_pos:
                     _package.append(field[nxt_pos.row][nxt_pos.col])
                 nxt_el_l.append(_package)

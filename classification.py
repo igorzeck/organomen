@@ -72,7 +72,8 @@ SUFIXES = {
     'Keton':'ona',
     'Ether':'ico',
     # Radicals
-    'Radical':'hyl'
+    'Radical':'hyl',
+    'Unsupported!':'NONE',
 }
 
 CON_Q = [

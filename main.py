@@ -20,6 +20,8 @@
 # TODO: Support for comments on field files
 # TODO: Support for functional naming (e.g. for alcohols)
 # TODO: Make rules for hyphens better!
+# TODO: Moelcular formula
+# TODO: Ver sobre integrar com formato de arquivos como o do https://pubchem.ncbi.nlm.nih.gov/compound/6-Ethyl-3-methylnonane#section=DSSTox-Substance-ID
 # -- Imports --
 from pathfinder import run_chain
 from classification import class_chain
@@ -27,7 +29,7 @@ from entities import *
 
 
 def main():
-    chain_path = "Chains/metylpropene.field"
+    chain_path = "Chains/p70Mirror.field"
 
     # Pathfinding
     c_main = Chain(chain_path)

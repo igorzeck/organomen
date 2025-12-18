@@ -13,12 +13,17 @@ class Connection:
         self.type = type
     # - Features -
     def __eq__(self, value):
-        return (
-            (self.from_id == value.from_id) and
-            (self.to_id == value.to_id) and
-            (self.dir == value.dir) and
-            (self.type == value.type)
-        )
+        if isinstance(value, Connection):
+            # Checks equality between values for the connection
+            return (
+                (self.from_id == value.from_id) and
+                (self.to_id == value.to_id) and
+                (self.dir == value.dir) and
+                (self.type == value.type)
+            )
+        elif isinstance(value, int):
+            # Checks type of connection
+            return self.type == value
     def __str__(self):
         return f'(From: {self.from_id}, To: {self.to_id}, Dir: {self.dir}, Type: {self.type})'
     def __repr__(self):
@@ -154,14 +159,15 @@ class Chain:
         return tuple(pos_pool)
     
     # - Chemistry related -
-    def get_main_path_id(self, pool_id):
+    def get_main_path_id(self, path_id):
         """
         Get main path id (starting from iC to fC following main path)
         
         :param self: Chain object
         :param pool_id: The id of the entity within the self (chain) id_pool
         """
-        return self.main_path.index(pool_id) + 1
+        if path_id in self.main_path:
+            return self.main_path.index(path_id) + 1
 
     # - Element-wise -
     # def add_path(self, path):

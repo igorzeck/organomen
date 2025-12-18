@@ -61,14 +61,82 @@ def run_subpath(chain: Chain, ent: Entity):
 
 
 
-def _is_higher(best: list, contender: list):
+def _is_higher(best: list, contender: list, chain: list[Entity]):
     """
     Checks if path is best fit to be the main one.
     """
+    # TODO: order this to check on proper order
+    # - Checks for empty values -
+    if not contender:
+        return best
+    # - Check variables -
+    contender_hetero = False
+    best_hetero = False
+
+    contender_insat = False
+    best_insat = False
+    
+    # For the most groups and the closest to start
+    contender_group = []
+    best_group = []
+
+    # - Checks -
+    for id in contender:
+        curr_el = chain[id]
+        # 1. Heteroatoms
+        if curr_el != 'C' and curr_el != 'H':
+            contender_hetero = True
+        # 2. Insaturation
+        if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
+            contender_insat = True
+        # 3. Closest group (careful with cyclical logic)
+        # Looks to more than 3 connections to carbons
+        # Note that any group should flag this, not onlu substitutive groups
+        if len(curr_el) > 2:
+            contender_group.append(contender.index(id))
+
+    for id in best:
+        curr_el = chain[id]
+        # 1. Heteroatoms
+        if curr_el != 'C' and curr_el != 'H':
+            best_hetero = True
+        # 2. Insaturation
+        if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
+            best_insat = True
+        # 3. Closest group
+        if len(curr_el) > 2:
+            best_group.append(best.index(id))
+    # - Comparisons -
+    # 1. Heteroatoms
+    if contender_hetero:
+        if not best_hetero:
+            return True
+    elif best_hetero:
+        return False
+    # 2. Insaturation
+    if contender_insat:
+        if not best_insat:
+            return True
+    elif best_insat:
+        return False
+    # 3. Group
+    if len(contender_group) > len(best_group):
+        # Contender has more groups 
+        return True
+    elif len(contender_group) == len(best_group):
+        # Checks the one with the closest group
+        if min(contender_group) < min(best_group):
+            return True
+    else:
+        # Current best has more groups
+        False
+    
+    # 4. Size comparison
     if len(contender) > len(best):
         return True
     else:
         return False
+    # If both are equal don't mtter which is returned
 
 
 # TODO: Make it follows all rules for defining main chain!
@@ -81,7 +149,7 @@ def run_path(chain: Chain,
     """
     Go through the 2D representation of a carbon chain
     path
-    recur: Current recursion (TODO: take it out)
+    recur: Current recursion
     origin_dir: Previous mirror direction to avoid backtracking
     """
     # Start position of this recursion
@@ -132,14 +200,13 @@ def run_path(chain: Chain,
                     print(f"({recur + 1}) Going ({nxt_dir}, {nxt_el_pos_id})")
                     print(best_stub)
                     temp_stub = run_path(chain, nxt_el_pos_id, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub)
-                    if _is_higher(best_stub, temp_stub):
+                    if _is_higher(best_stub, temp_stub, chain.chain):
                         best_stub = temp_stub
             break
         if pos_id in chain.edges:
             print(f"({recur}) Done")
             print(*path_stub)
-            # chain.add_path(path_stub)
-            if _is_higher(best_stub, path_stub):
+            if _is_higher(best_stub, path_stub, chain.chain):
                 best_stub = path_stub
                 chain.main_path = best_stub
             print_field(chain.field, [chain.id_pool[id] for id in path_stub])
@@ -147,7 +214,7 @@ def run_path(chain: Chain,
     return best_stub
 
 
-# Obsolet
+# Obsolete
 def get_sub_groups(chain: Chain):
     # Get substitutive groups
     to_highlight: Pos = []
@@ -241,6 +308,7 @@ def run_chain(field):
     chain = Chain(field)
     for pos_id in chain.edges:
         print(f"Start from {chain.id_pool[pos_id]}")
+        # With path function
         chain.main_path = run_path(chain,
                                 pos_id,
                                 path_stub=[],
