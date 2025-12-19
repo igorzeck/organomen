@@ -60,12 +60,13 @@ def print_field(field: list[list], highlights: tuple = [Pos(-1, -1)], highlight_
                 p_el = zeros_repr.ljust(3)
             elif curr_pos in highlights:
                 if not highlight_color_only:
-                    if curr_pos == highlights[0]:
-                        # Start
-                        el = 'i' + el
-                    elif curr_pos == highlights[-1]:
-                        # End
-                        el = 'f' + el
+                    if len(highlights) > 1:
+                        if curr_pos == highlights[0]:
+                            # Start
+                            el = 'i' + el
+                        elif curr_pos == highlights[-1]:
+                            # End
+                            el = 'f' + el
                 p_el = "\033[34m" + el.ljust(3) + "\033[0m"
             else: 
                 p_el = el.ljust(3)

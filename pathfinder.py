@@ -68,7 +68,7 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
     # TODO: order this to check on proper order
     # - Checks for empty values -
     if not contender:
-        return best
+        return False
     # - Check variables -
     contender_hetero = False
     best_hetero = False
@@ -140,6 +140,7 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
 
 
 # TODO: Make it follows all rules for defining main chain!
+# TODO: Make it not start from a heteroatom
 def run_path(chain: Chain,
              start_pos_id: int,
              path_stub: list,
@@ -178,7 +179,8 @@ def run_path(chain: Chain,
             if len(scout(chain.field, chain.id_pool,pos_id)) == 1:
                 return []
 
-        if (nxt_n_con == 2 and pos_id not in chain.edges) or pos_id == start_pos_id:
+        # if (nxt_n_con == 2 and pos_id not in chain.edges) or pos_id == start_pos_id:
+        if (nxt_n_con <= 2 and pos_id):
             # If it has one possible path, move
             jump = False
             for _con in nxt_els:
@@ -202,8 +204,10 @@ def run_path(chain: Chain,
                     temp_stub = run_path(chain, nxt_el_pos_id, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub)
                     if _is_higher(best_stub, temp_stub, chain.chain):
                         best_stub = temp_stub
+                    print_field(chain.field, [chain.id_pool[id] for id in path_stub])
+
             break
-        if pos_id in chain.edges:
+        if pos_id in chain.edges and pos_id != start_pos_id:
             print(f"({recur}) Done")
             print(*path_stub)
             if _is_higher(best_stub, path_stub, chain.chain):

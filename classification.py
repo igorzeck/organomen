@@ -16,14 +16,18 @@ from entities import Chain, Entity
 # -- Naming --
 # - Name prefix -
 # - Constants -
-SIMPLE = '1'
-DOUBLE = '2'
+SIMPLE = 1
+DOUBLE = 2
 
-HETEROATOMS = [
-    'F',
-    'O',
-    'N'
-]
+# Atoms in all caps for ease of comparison
+HALIDES = {
+    'F':'Fluorine',
+    'CL':'Clhorine',
+    'BR':'Bromine',
+    'I':'Iodine'
+}
+
+HETEROATOMS = HALIDES
 
 # Functional look-up table with composite key index
 functional_sub = {
@@ -64,6 +68,7 @@ INFIXES = [
 ]
 
 # Relative to chain functional class
+# Maybe use a default dict?
 SUFIXES = {
     'Hydrocarbon':'e',
     'Alcohol':'ol',
@@ -73,6 +78,7 @@ SUFIXES = {
     'Ether':'ico',
     # Radicals
     'Radical':'hyl',
+    'Halides':'e',  # Kinda hacky, not gonna lie...
     'Unsupported!':'NONE',
 }
 
@@ -142,6 +148,7 @@ class Classifier:
             # print(f"{self.subgroups[subg_id]} has an heteroatom!")
             # If it is
             self.is_oxy(subg_id)
+            self.is_halide(subg_id)
         else:
             # print(f"{self.subgroups[subg_id]} does NOT have an heteroatom!")
             # If it isn't, is it the main chain?
@@ -155,7 +162,9 @@ class Classifier:
     
     def which_radical(self, subg_id: int):
         pass
-
+    
+    # This way runs two times though...
+    # - Oxygen -
     def is_oxy(self, subg_id: int):
         if any([ent.el == 'O' for ent in self.subgroups[subg_id]]):
             self.is_oxy_2(subg_id)
@@ -177,6 +186,19 @@ class Classifier:
                             for con in ent.cons]):
                         # print('Is an aldehyde!')
                         self._append_classif('Aldehyde', subg_id)
+    
+    # - Halides -
+    def is_halide(self, subg_id: int):
+        for ent in self.subgroups[subg_id]:
+            if ent.el in HALIDES:
+                _host = _get_host(self.chain.main_chain, ent)
+                if ent != _host:
+                    print(_host, end="\n\n")
+                    if any([((con == SIMPLE))\
+                            for con in ent.cons]):
+                        # Then, it's an Halide
+                        # Appends each element individually
+                        self._append_classif(ent.el, subg_id)
 
 
 # - Function -
@@ -236,6 +258,34 @@ def _name_functional(functional: dict[list[int]]):
 
 def _name_radical(classific: Classifier):
     final_str = ''
+    
+    # - Non hydrocarbon radicals -
+    # Sorts to make it easy on naming compounding
+    for gp in sorted(classific.classif):
+        # For now jumps "Radical"
+        if gp == 'Radical':
+            continue
+
+        # If it is a Haladie
+        if gp in HALIDES:
+            # Name of the halide
+            for i_radical in classific.classif[gp]:
+                # For now looks into the final element
+                el = classific.subgroups[i_radical][-1].el
+                n_str = HALIDES[el].lower()
+                if final_str:
+                    final_str += '-'
+            
+                # - Position (of the host) -
+                func_pos = []
+
+                _host = classific.subgroups[i_radical][0]
+                func_pos.append(str(classific.chain.get_main_path_id(_host.id)))
+            
+            # - Functional name -            
+            final_str += ','.join(func_pos) + '-' + n_str
+
+    # - Hydrocarbon radicals -
     # Apparently always specify the position of the radical!
     if 'Radical' in classific.classif:
         gp = 'Radical'
@@ -276,6 +326,7 @@ def _name_radical(classific: Classifier):
             hosts_ids = [_id for _id in [classific.subgroups[_i_subg][0].id for _i_subg in radical_types[i_radical]]]
             func_pos = [str(classific.chain.get_main_path_id(_pos)) for _pos in hosts_ids]
             
+            # TODO: function for this logic!
             n_str = ''
             if rt_len < len(CON_Q):
                 n_str += CON_Q[rt_len]
@@ -289,7 +340,7 @@ def _name_radical(classific: Classifier):
                     final_str += 'cycle'
             final_str += r_prefix
             final_str += SUFIXES[gp]
-    
+
     return final_str
             
 
@@ -300,11 +351,15 @@ def _classif_atom(field: list[Pos], ids, pos_id):
     info = scout(field, ids, pos_id)
     els = [field[ids[id[0]].row][ids[id[0]].col] for id in info]
 
-    if el != 'O' and el !='C':
+    if el != 'O' and el !='C' and el not in HALIDES:
         return 'Unsupported!', pos_id
-    
+
+    # - Halides -
+    if el in HALIDES:
+        return 'Halides', pos_id
+
     # - Radicals -
-    if (el == 'C'):
+    if el == 'C':
         if els.count('C') > 2:
             return 'Radical', pos_id
 
