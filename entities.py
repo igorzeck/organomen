@@ -86,6 +86,7 @@ class Entity:
 
 # - Classes -
 # Single chain (only one path) representation
+# TODO: > and < shoudl compare size between chains!
 class Chain:
     def __init__(self, builder: str | list):
         """

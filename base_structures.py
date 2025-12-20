@@ -92,6 +92,18 @@ DOUBLE = 2
 TRIPLE = 3
 QUADRUPLE = 4
 
+
+# Atoms in all caps for ease of comparison
+HALIDES = {
+    'F':'Fluorine',
+    'CL':'Clhorine',
+    'BR':'Bromine',
+    'I':'Iodine'
+}
+
+# Merges dictionaries ( Python >= 3.9.0 )
+HETEROATOMS = HALIDES | {'O':'Oxygen'}
+
 # Coordinates associated with each connection
 # -4 -3 -2
 # -1  C  1

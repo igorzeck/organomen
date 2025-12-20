@@ -60,7 +60,8 @@ def run_subpath(chain: Chain, ent: Entity):
             raise IndexError("Too big of a chain: Too big subapath, malformed chain!")
 
 
-
+# TODO: For same size subpaths, the ones with the most ramifications should be the main one
+# TODO: The lower position number should fallback to alphabetical order when equivalent positions
 def _is_higher(best: list, contender: list, chain: list[Entity]):
     """
     Checks if path is best fit to be the main one.
@@ -73,8 +74,9 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
     contender_hetero = False
     best_hetero = False
 
-    contender_insat = False
-    best_insat = False
+    # O ideal é contar o número de insaturações!
+    contender_insat = 0
+    best_insat = 0
     
     # For the most groups and the closest to start
     contender_group = []
@@ -88,7 +90,8 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
             contender_hetero = True
         # 2. Insaturation
         if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
-            contender_insat = True
+            # As it's a linear path I can add 1 whenever it finds a instaturation regardless of how many!
+            contender_insat += 1
         # 3. Closest group (careful with cyclical logic)
         # Looks to more than 3 connections to carbons
         # Note that any group should flag this, not onlu substitutive groups
@@ -102,7 +105,7 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
             best_hetero = True
         # 2. Insaturation
         if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
-            best_insat = True
+            best_insat += 1
         # 3. Closest group
         if len(curr_el) > 2:
             best_group.append(best.index(id))
@@ -114,16 +117,18 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
     elif best_hetero:
         return False
     # 2. Insaturation
-    if contender_insat:
-        if not best_insat:
-            return True
-    elif best_insat:
+    # Does nothing if they both are equal!
+    if contender_insat > best_insat:
+        return True
+    elif contender_insat < best_insat:
         return False
+
     # 3. Group
     if len(contender_group) > len(best_group):
         # Contender has more groups 
         return True
     elif len(contender_group) == len(best_group):
+        # TODO: Checks to see if, in alphabetical order, the lowets is closest
         # Checks the one with the closest group
         if min(contender_group) < min(best_group):
             return True
@@ -141,7 +146,7 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
 
 # TODO: Make it follows all rules for defining main chain!
 # TODO: Make it not start from a heteroatom
-def run_path(chain: Chain,
+def run_path_recursive(chain: Chain,
              start_pos_id: int,
              path_stub: list,
              best_stub: list,
@@ -161,7 +166,6 @@ def run_path(chain: Chain,
         print_field(chain.field, [chain.id_pool[pos_id]])
         nxt_els = chain.chain[pos_id]
         nxt_n_con = len(nxt_els.cons)
-        print(nxt_els, pos_id)
         # Cycle detection
         if pos_id in path_stub:
             # It will have repeated position
@@ -180,7 +184,7 @@ def run_path(chain: Chain,
                 return []
 
         # if (nxt_n_con == 2 and pos_id not in chain.edges) or pos_id == start_pos_id:
-        if (nxt_n_con <= 2 and pos_id):
+        if (nxt_n_con <= 2):
             # If it has one possible path, move
             jump = False
             for _con in nxt_els:
@@ -199,23 +203,85 @@ def run_path(chain: Chain,
                 nxt_dir = _con.dir
                 nxt_el_pos_id = _con.to_id
                 if nxt_dir != origin_dir:
-                    print(f"({recur + 1}) Going ({nxt_dir}, {nxt_el_pos_id})")
-                    print(best_stub)
-                    temp_stub = run_path(chain, nxt_el_pos_id, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub)
+                    print(f"({recur + 1}) Going (Dir: {nxt_dir}, ID: {nxt_el_pos_id})")
+                    temp_stub = run_path_recursive(chain, nxt_el_pos_id, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub)
                     if _is_higher(best_stub, temp_stub, chain.chain):
                         best_stub = temp_stub
                     print_field(chain.field, [chain.id_pool[id] for id in path_stub])
 
             break
-        if pos_id in chain.edges and pos_id != start_pos_id:
+        if pos_id in chain.edges:
             print(f"({recur}) Done")
-            print(*path_stub)
             if _is_higher(best_stub, path_stub, chain.chain):
                 best_stub = path_stub
                 chain.main_path = best_stub
             print_field(chain.field, [chain.id_pool[id] for id in path_stub])
             break
     return best_stub
+
+
+def run_path_iterative(chain: Chain):
+    best_path: list[int] = []
+
+    for start_id in chain.edges:
+        curr_el: Entity = chain.chain[start_id]
+        curr_path: list[int] = [start_id]
+        action_stack: list[tuple] = []
+
+        print(f"Starting at edge {start_id}")
+        print_field(
+            chain.field,
+            highlights=[chain.id_pool[start_id]]
+        )
+
+        eop = False # End of Path flag
+
+        # Appends initial direction on action stack
+        for con in curr_el:
+            action_stack.append((len(curr_path), con.to_id))
+
+        # Follows action_stack
+        while action_stack:
+            curr_path_id, curr_el_id = action_stack.pop()
+            curr_el = chain.chain[curr_el_id]
+
+            print_field(
+                chain.field,
+                highlights=[chain.id_pool[curr_el_id]]
+            )
+
+            # - End of Path check -
+            # At edge or already on the path (cyclical)
+            eop = (curr_el in chain.edges) or\
+                    (curr_el_id in curr_path)
+            
+            if curr_path_id < len(curr_path):
+                curr_path = curr_path[:curr_path_id]
+            
+            # Such that heteroatoms are not on the main chain
+            if curr_el.el not in HETEROATOMS:
+                curr_path.append(curr_el_id)
+            else:
+                # As it needs to be an edge also!
+                eop = eop and True
+
+            if eop:
+                # Checks if curr_path is a better main path than best_path
+                if _is_higher(best_path, curr_path, chain):
+                    # New best_path
+                    best_path = curr_path
+
+                print_field(
+                    chain.field,
+                    highlights=[chain.id_pool[id] for id in curr_path]
+                )
+            else:
+                for con in curr_el:
+                    if con.to_id not in curr_path:
+                        action_stack.append((len(curr_path), con.to_id))
+
+
+    return best_path
 
 
 # Obsolete
@@ -233,7 +299,6 @@ def get_sub_groups(chain: Chain):
 
         if any([con.to_id not in chain.main_path for con in ent.cons]):
             to_highlight.append(chain.id_pool[ent.id])
-    print("Highights:", to_highlight)
     print_field(chain.field, to_highlight, highlight_color_only=True)
 
 
@@ -270,8 +335,6 @@ def follow_subpath(chain: list[Entity], main_path: list[Entity], group: list[Ent
             break
 
         group.append(ent)
-        print("i", cont)
-        print(ent)
 
         # - Advance -
         if len(ent) == 2:
@@ -313,11 +376,12 @@ def run_chain(field):
     for pos_id in chain.edges:
         print(f"Start from {chain.id_pool[pos_id]}")
         # With path function
-        chain.main_path = run_path(chain,
+        chain.main_path = run_path_recursive(chain,
                                 pos_id,
                                 path_stub=[],
                                 best_stub=chain.main_path
                                 )
+    chain.main_path = run_path_iterative(chain)
     if chain.main_path:
         print("Longest:")
         print_field(field, [chain.id_pool[id] for id in chain.main_path])

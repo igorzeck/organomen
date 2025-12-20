@@ -4,7 +4,7 @@
 # 3. Host by Host (plus its groups)
 # 4. Entire chain
 # -- Imports --
-from base_structures import Pos
+from base_structures import Pos, HETEROATOMS, HALIDES, SIMPLE, DOUBLE, TRIPLE, QUADRUPLE  # ... No comments...
 from pathfinder import scout, _get_host, run_subpath
 from entities import Chain, Entity
 
@@ -16,18 +16,6 @@ from entities import Chain, Entity
 # -- Naming --
 # - Name prefix -
 # - Constants -
-SIMPLE = 1
-DOUBLE = 2
-
-# Atoms in all caps for ease of comparison
-HALIDES = {
-    'F':'Fluorine',
-    'CL':'Clhorine',
-    'BR':'Bromine',
-    'I':'Iodine'
-}
-
-HETEROATOMS = HALIDES
 
 # Functional look-up table with composite key index
 functional_sub = {
