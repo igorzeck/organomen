@@ -32,6 +32,11 @@ def run_subpath(chain: Chain, ent: Entity):
     - Finds itself (in a loop)
     - If finds an edge
     - If finds an main_chain atom (return it)
+    
+    :param chain: Chain to be expored
+    :type chain: Chain
+    :param ent: Entity where the subpath starts
+    :type ent: Entity
     """
     failsafe = 0
     ents_pool: list[Entity] = [ent]
@@ -70,6 +75,10 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
     # - Checks for empty values -
     if not contender:
         return False
+    
+    # - Checks for early exit -
+    if not best:
+        return True
     # - Check variables -
     contender_hetero = False
     best_hetero = False
@@ -86,7 +95,7 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
     for id in contender:
         curr_el = chain[id]
         # 1. Heteroatoms
-        if curr_el != 'C' and curr_el != 'H':
+        if curr_el.is_hetero():
             contender_hetero = True
         # 2. Insaturation
         if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
@@ -101,7 +110,7 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
     for id in best:
         curr_el = chain[id]
         # 1. Heteroatoms
-        if curr_el != 'C' and curr_el != 'H':
+        if curr_el.is_hetero():
             best_hetero = True
         # 2. Insaturation
         if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
@@ -110,12 +119,13 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
         if len(curr_el) > 2:
             best_group.append(best.index(id))
     # - Comparisons -
-    # 1. Heteroatoms
+    # 1. Heteroatoms (Obsolete?)
     if contender_hetero:
         if not best_hetero:
             return True
     elif best_hetero:
         return False
+    
     # 2. Insaturation
     # Does nothing if they both are equal!
     if contender_insat > best_insat:
@@ -124,17 +134,18 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
         return False
 
     # 3. Group
-    if len(contender_group) > len(best_group):
-        # Contender has more groups 
-        return True
-    elif len(contender_group) == len(best_group):
-        # TODO: Checks to see if, in alphabetical order, the lowets is closest
-        # Checks the one with the closest group
-        if min(contender_group) < min(best_group):
+    if contender_group and best_group:
+        if len(contender_group) > len(best_group):
+            # Contender has more groups 
             return True
-    else:
-        # Current best has more groups
-        False
+        elif len(contender_group) == len(best_group):
+            # TODO: Checks to see if, in alphabetical order, the lowets is closest
+            # Checks the one with the closest group
+            if min(contender_group) < min(best_group):
+                return True
+        else:
+            # Current best has more groups
+            False
     
     # 4. Size comparison
     if len(contender) > len(best):
@@ -220,6 +231,8 @@ def run_path_recursive(chain: Chain,
     return best_stub
 
 
+# TODO: Oxygen should go to main chain except if on edge! (So does Nitrogen)
+# Maybe they should BE the main_chain (registered as edge if connection to multiple Cs?)
 def run_path_iterative(chain: Chain):
     best_path: list[int] = []
 
@@ -234,7 +247,8 @@ def run_path_iterative(chain: Chain):
             highlights=[chain.id_pool[start_id]]
         )
 
-        eop = False # End of Path flag
+        # End of Path flag
+        eop = False
 
         # Appends initial direction on action stack
         for con in curr_el:
@@ -242,13 +256,16 @@ def run_path_iterative(chain: Chain):
 
         # Follows action_stack
         while action_stack:
-            curr_path_id, curr_el_id = action_stack.pop()
-            curr_el = chain.chain[curr_el_id]
-
-            print_field(
-                chain.field,
-                highlights=[chain.id_pool[curr_el_id]]
+            # Goes to the next unless is an Nitrogen edge
+            if not curr_el.el == 'N':
+                curr_path_id, curr_el_id = action_stack.pop()
+                curr_el = chain.chain[curr_el_id]
+                print_field(
+                    chain.field,
+                    highlights=[chain.id_pool[curr_el_id]]
             )
+            else:
+                action_stack.clear()
 
             # - End of Path check -
             # At edge or already on the path (cyclical)
@@ -262,15 +279,14 @@ def run_path_iterative(chain: Chain):
             if curr_el.el not in HETEROATOMS:
                 curr_path.append(curr_el_id)
             else:
-                # As it needs to be an edge also!
-                eop = eop and True
+                eop = True
 
             if eop:
                 # Checks if curr_path is a better main path than best_path
                 if _is_higher(best_path, curr_path, chain):
                     # New best_path
                     best_path = curr_path
-
+                print("Full path:")
                 print_field(
                     chain.field,
                     highlights=[chain.id_pool[id] for id in curr_path]
@@ -284,7 +300,6 @@ def run_path_iterative(chain: Chain):
     return best_path
 
 
-# Obsolete
 def get_sub_groups(chain: Chain):
     # Get substitutive groups
     to_highlight: Pos = []
@@ -342,6 +357,7 @@ def follow_subpath(chain: list[Entity], main_path: list[Entity], group: list[Ent
             for con in ent:
                 if con.dir != dir:
                     to_id = ent.at_dir(con.dir)
+                    dir = -con.dir
         elif len(ent) > 2:
             # Recursion for the conjunction
             for con in ent:
@@ -363,27 +379,28 @@ def follow_subpath(chain: list[Entity], main_path: list[Entity], group: list[Ent
         _cycled = ent in group
         _back_at_main = ent in main_path
 
+
     return group
 
 
 # TODO: Insert chain as a parameter
-# TODO: It needs to start and end at an edge!
+# TODO: It needs to start and end at an edge!s
 def run_chain(field):
     """
     Go through the entirety of a chain field representation
     """
     chain = Chain(field)
-    for pos_id in chain.edges:
-        print(f"Start from {chain.id_pool[pos_id]}")
-        # With path function
-        chain.main_path = run_path_recursive(chain,
-                                pos_id,
-                                path_stub=[],
-                                best_stub=chain.main_path
-                                )
+    # for pos_id in chain.edges:
+    #     print(f"Start from {chain.id_pool[pos_id]}")
+    #     # With path function
+    #     chain.main_path = run_path_recursive(chain,
+    #                             pos_id,
+    #                             path_stub=[],
+    #                             best_stub=chain.main_path
+    #                             )
     chain.main_path = run_path_iterative(chain)
     if chain.main_path:
-        print("Longest:")
+        print("Main chain:")
         print_field(field, [chain.id_pool[id] for id in chain.main_path])
     else:
         print("Empty field!") 
@@ -391,6 +408,6 @@ def run_chain(field):
     for pos_id in chain.main_path:
         chain.main_chain.append(chain.chain[pos_id])
 
-    get_sub_groups(chain)
+    # get_sub_groups(chain)
 
     return chain

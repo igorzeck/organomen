@@ -1,6 +1,6 @@
 # TODO: Entity object with iter overload so you can get its connections
 # TODO: Make an field with id instead of elements and maybe negative for connections
-from base_structures import Pos, print_field, abrir_arq_chain, CD_OFFS
+from base_structures import Pos, print_field, abrir_arq_chain, CD_OFFS, HETEROATOMS
 from auxiliary import *
 
 # - Connection -
@@ -55,6 +55,9 @@ class Entity:
                 return con.to_id
         # Not found
         return -1
+    # - Chemistry -
+    def is_hetero(self) -> bool:
+        return self.el in HETEROATOMS
     # - Visual -
     def __str__(self):
         return f"({self.id}: {self.el} - {self.cons})"
@@ -138,7 +141,10 @@ class Chain:
                 if ent_str == 'C':
                     c_count += 1
             self.chain.append(Entity(id_pos, el_str, cons))
-            if el_str == 'C' and c_count <= 1:
+            # If is Carbon and with one connection
+            # TODO: Handle Nitrogen (Maybe treat them as 'C' if detected)
+            # Depends on the situation though!
+            if (el_str == 'C' and c_count <= 1):
                 self.edges.append(id_pos)
         # For now, if edgless - and there is more than 1 carbon -
         # the first position is given the honour of "edge"
@@ -189,6 +195,11 @@ class Chain:
     #             break
     def get_main_path_size(self):
         return len(self.main_path)
+    def to_el(self, id: int, el: str = '') -> int:
+        if el:
+            return sum([self.chain[con.to_id].el == el for con in self.chain[id].cons])
+        else:
+            return len(self.chain[id].cons)
     # - Visual -
     def print_ids(self):
         mock_field = [[0 for _ in range(self.n_col)] for __ in range(self.n_row)]
