@@ -171,16 +171,13 @@ class Chain:
         return tuple(pos_pool)
     
     # - Chemistry related -
-    def get_main_path_id(self, path_id):
-        """
-        Get main path id (starting from iC to fC following main path)
-        
-        :param self: Chain object
-        :param pool_id: The id of the entity within the self (chain) id_pool
-        """
+    def get_main_path_id(self, path_id: int):
         if path_id in self.main_path:
             return self.main_path.index(path_id) + 1
 
+    def get_main_path_ids(self, path_ids: list[int]):
+        for id in path_ids:
+            yield self.get_main_path_id(id)
     # - Element-wise -
     # def add_path(self, path):
     #     """
