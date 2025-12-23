@@ -42,7 +42,11 @@ def abrir_arq_chain(nome_arq):
 # - Visual -
 # TODO: Still using field I see...
 # TODO: Change it to show on chain path instead
-def print_field(field: list[list], highlights: tuple = [Pos(-1, -1)], highlight_color_only = False, zeros_repr='.'):
+def print_field(field: list[list],
+                highlights: tuple = [Pos(-1, -1)],
+                highlight_color_only = False,
+                show_ids = False,
+                zeros_repr='.'):
     """
     Prints the 2D matrix representation
 
@@ -59,9 +63,12 @@ def print_field(field: list[list], highlights: tuple = [Pos(-1, -1)], highlight_
             if el == '0':
                 p_el = zeros_repr.ljust(3)
             elif curr_pos in highlights:
+                el = el if not show_ids else str(highlights.index(curr_pos))
                 if not highlight_color_only:
                     if len(highlights) > 1:
-                        if curr_pos == highlights[0]:
+                        if curr_pos == highlights[0] == highlights[-1]:
+                            el = 'o' + el
+                        elif curr_pos == highlights[0]:
                             # Start
                             el = 'i' + el
                         elif curr_pos == highlights[-1]:

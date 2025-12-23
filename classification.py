@@ -70,11 +70,11 @@ SUFFIXES = {
     'Keton':'ona',
     'Ether':'e',
     'Halides':'e',  # Kinda hacky, not gonna lie...
-    'Unsupported!':'NONE',
+    'UNRESOLVED':'NONE',
 }
 
 CON_Q = [
-        'UNDER',
+        '', # Possible for hydrocarbons
         '',
         'di',
         'tri'
@@ -90,6 +90,11 @@ class Classifier:
     def __init__(self, chain: Chain):
         self.chain: Chain = chain
 
+        # Define higher class of the compound
+        # For example, cyclane and cyclene would have the same higher class (Hydrocarbon)
+        # Fenol would be an Alcohol and etc.
+        self.hclass: str = "UNCLASSIFIED"
+
         # Already verified entities pool
         self.ents_pool: set[int] = set()
 
@@ -98,10 +103,13 @@ class Classifier:
 
         self.classif: dict = {}  # TODO: initalize with some functionals keys (but empty sets)
 
-        self.host_by_classif: dict[int] = {}  # Host: [functions]
+        self.classif_by_host: dict[int] = {}  # Host: [functions]
 
-        self.classif_by_host: dict[str] = {} # Functions: [host]
+        self.host_by_classif: dict[str] = {} # Functions: [host]
+    
         # Function call
+        self._root_question(0)
+
         self._define_subgroups()
     
     def _append_classif(self, _class: str, subg_id: int):
@@ -113,27 +121,31 @@ class Classifier:
         if subg_id != 0:
             _host_id = self.subgroups[subg_id][0].id
 
-            if _class in self.classif_by_host:
-                self.classif_by_host[_class].append(_host_id)
+            if _class in self.host_by_classif:
+                self.host_by_classif[_class].append(_host_id)
             else:
-                self.classif_by_host[_class] = [_host_id]
+                self.host_by_classif[_class] = [_host_id]
             
-            if _host_id in self.host_by_classif:
-                self.host_by_classif[_host_id].append(_class)
+            if _host_id in self.classif_by_host:
+                self.classif_by_host[_host_id].append(_class)
             else:
-                self.host_by_classif[_host_id] = [_class]
+                self.classif_by_host[_host_id] = [_class]
 
+    def get_hclass(self) -> str:
+        return self.hclass
 
     def get_classif(self, id: int) -> str:
         for classif in self.classif:
             if id in self.classif[classif]:
                 return classif
+        return 'UNRESOLVED'
     
     # - Chemical logic -
     def _define_subgroups(self):
         # TODO: Cleanup
         # Starts from a point on the main_chains
-        for main_ent in self.chain.main_chain:
+        start_id = 1 if self.get_classif(0) == "Cycle" else 0
+        for main_ent in self.chain.main_chain[start_id:]:
             for nxt_con in main_ent.cons:
                 nxt_ent = self.chain.chain[nxt_con.to_id]
                 if (nxt_ent not in self.chain.main_chain):
@@ -148,7 +160,7 @@ class Classifier:
                     print(_subgroup)
                     
         # ID 0 is the main chain!
-        for subg_id in range(len(self.subgroups) - 1, -1, -1):
+        for subg_id in range(1, len(self.subgroups)):
             self._root_question(subg_id)
 
         print("Classifications:", self.classif)
@@ -157,26 +169,25 @@ class Classifier:
     # (tree-like function cascade)
     # I think is better to have an if forest tbh...
     def _root_question(self, subg_id: int):
+        # 0. Is it a cycle?
+        if (self.subgroups[subg_id][0] == self.subgroups[subg_id][-1]) and\
+            (len(self.subgroups[subg_id]) > 1):
+            self._append_classif('Cycle', subg_id)
         # 1. Has an hteroatom?
         if any([ent.is_hetero() for ent in self.subgroups[subg_id]]):
             # print(f"{self.subgroups[subg_id]} has an heteroatom!")
-            # If it is
+            # If it does
             self._is_oxy(subg_id)
             self._is_halide(subg_id)
         else:
             # print(f"{self.subgroups[subg_id]} does NOT have an heteroatom!")
             # If it doesn't, is it the main chain?
             if subg_id == 0:
-                # If so, then is a standard hydrocarbon 
                 # Tries to resolve main chain class
-                self._append_classif(self._resolve_main(), 0)
+                self._resolve_hclass()
             else:
-                # If not, classificate it
+                # If not, treat as a radical
                 self._append_classif('Radical', subg_id)
-        # 0. Is a cycle?
-        if (self.subgroups[subg_id][0] == self.subgroups[subg_id][-1]) and\
-            (len(self.subgroups[subg_id]) > 1):
-            self._append_classif('Cycle', subg_id)
     
     # This way runs two times though...
     # - Oxygen -
@@ -230,32 +241,29 @@ class Classifier:
     #         host_dict[_host_id].append(self.get_classif(_subg_id))
     
 
-    def _resolve_main(self) -> str:
-        for _host in self.host_by_classif:
-            _host_classif = self.host_by_classif[_host]
+    def _resolve_hclass(self) -> str:
+        for _host in self.classif_by_host:
+            _host_classif = self.classif_by_host[_host]
             has_alcohol = 'Alcohol' in _host_classif
             has_ether = 'Ether' in _host_classif
             has_keton = 'Keton' in _host_classif
-
             if has_alcohol:
-                return 'Alcohol'
+                self.hclass = 'Alcohol'
             if has_ether and has_keton:
-                return 'Ester'
+                self.hclass = 'Ester'
             if has_ether:
-                return 'Ether'
+                self.hclass = 'Ether'
             if has_keton:
-                return 'Keton'
-        return 'UNRESOLVED'
+                self.hclass = 'Keton'
+        self.hclass = 'Hydrocarbon'
 
 # - Function -
 # - Helpers -
 # Get connection infix
-con_infix = lambda n: CON_Q[n] if n < len(CON_Q) else 'UNSUPPORTED'
-
 def con_infix(ids: int = [], hide_ids = True):
     n = len(ids)
     if n < len(CON_Q):
-        if hide_ids:
+        if hide_ids or n == 0:
             return CON_Q[n]
         else:
             return '-' + ','.join(map(str, ids)) + '-'
@@ -358,8 +366,7 @@ def _name_radical(classific: Classifier) -> str:
         pair_names = list(zip(func_names, radical_types.keys()))
         # Orders based on first element (a.k.a its name)
         pair_names.sort(key=lambda el: el[0])
-        # Gets last element (id)
-        print(self.host_classif)
+        
         # Note that the multiplier prefixes do not count on the alphabetical order!
 
         print("Pares:", pair_names)
@@ -441,16 +448,16 @@ def _name_radical(classific: Classifier) -> str:
 
 def _name_suffix(classific: Classifier) -> str:
     final_str = ''
-    main_classif = classific.get_classif(0)
+    main_classif = classific.get_hclass()
     # - Functional positions (ids) -
     _main_ids = []
-    if main_classif in classific.classif_by_host:
+    if main_classif in classific.host_by_classif:
         # Counts position
-        _ids = classific.classif_by_host[main_classif]
+        _ids = classific.host_by_classif[main_classif]
         _main_ids = list(classific.chain.get_main_path_ids(_ids))
     final_str += con_infix(_main_ids, hide_ids=False)
     # - Functional suffix -
-    final_str += SUFFIXES[classific.get_classif(0)]
+    final_str += SUFFIXES[classific.get_hclass()]
     return final_str
 
 

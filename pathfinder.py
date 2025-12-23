@@ -4,6 +4,12 @@ from auxiliary import *
 from entities import Chain, Entity, Connection
 
 # - Runners -
+# TODO: Correct cyclical naming
+# So, if I only look through edges (if any) how do i correctly
+# define the main chain of a cyclical compound with an edge from
+# a radical? Something to do like: If detects cyclical behaviour
+# For comparision sake treat as a main chain in its own right, perhaps?
+
 # Should first selected based on: heteroatom
 # Then: Connections
 # Then: size
@@ -70,6 +76,11 @@ def run_subpath(chain: Chain, ent: Entity):
 def _is_higher(best: list, contender: list, chain: list[Entity]):
     """
     Checks if path is best fit to be the main one.
+    
+    Criteria:
+    
+    - Cycle (ring) for mixed chain is considered the main chain.
+
     """
     # TODO: order this to check on proper order
     # - Checks for empty values -
@@ -80,10 +91,12 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
     if not best:
         return True
     # - Check variables -
+    contender_cyclical = False
+    best_cyclical = False
+
     contender_hetero = False
     best_hetero = False
 
-    # O ideal é contar o número de insaturações!
     contender_insat = 0
     best_insat = 0
     
@@ -92,6 +105,10 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
     best_group = []
 
     # - Checks -
+    if len(contender) > 1:
+        if contender[0] == contender[-1]:
+            contender_cyclical = True
+
     for id in contender:
         curr_el = chain[id]
         # 1. Heteroatoms
@@ -107,6 +124,10 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
         if len(curr_el) > 2:
             contender_group.append(contender.index(id))
 
+    if len(best) > 1:
+        if best[0] == best[-1]:
+            best_cyclical = True
+
     for id in best:
         curr_el = chain[id]
         # 1. Heteroatoms
@@ -119,21 +140,22 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
         if len(curr_el) > 2:
             best_group.append(best.index(id))
     # - Comparisons -
-    # 1. Heteroatoms (Obsolete?)
-    if contender_hetero:
-        if not best_hetero:
-            return True
-    elif best_hetero:
-        return False
+    # 1. Cyclicality
+    if contender_cyclical ^ best_cyclical:
+        # XOR operator above
+        return contender_cyclical
+    # 2. Heteroatoms
+    if contender_hetero ^ best_hetero:
+        return contender_hetero
     
-    # 2. Insaturation
+    # 3. Insaturation
     # Does nothing if they both are equal!
     if contender_insat > best_insat:
         return True
     elif contender_insat < best_insat:
         return False
 
-    # 3. Group
+    # 4. Group
     if contender_group and best_group:
         if len(contender_group) > len(best_group):
             # Contender has more groups 
@@ -147,7 +169,7 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
             # Current best has more groups
             False
     
-    # 4. Size comparison
+    # 5. Size comparison
     if len(contender) > len(best):
         return True
     else:
@@ -252,13 +274,14 @@ def run_path_iterative(chain: Chain):
 
         # Appends initial direction on action stack
         for con in curr_el:
-            action_stack.append((len(curr_path), con.to_id))
+            action_stack.append((len(curr_path), con.to_id, con.dir))
 
         # Follows action_stack
         while action_stack:
+            curr_start = 0
             # Goes to the next unless is an Nitrogen edge
             if not curr_el.el == 'N':
-                curr_path_id, curr_el_id = action_stack.pop()
+                curr_path_id, curr_el_id, origin_dir = action_stack.pop()
                 curr_el = chain.chain[curr_el_id]
                 print_field(
                     chain.field,
@@ -268,12 +291,17 @@ def run_path_iterative(chain: Chain):
                 action_stack.clear()
 
             # - End of Path check -
-            # At edge or already on the path (cyclical)
-            eop = (curr_el in chain.edges) or\
-                    (curr_el_id in curr_path)
+            # At edge
+            eop = (curr_el in chain.edges)
             
             if curr_path_id < len(curr_path):
                 curr_path = curr_path[:curr_path_id]
+
+            # Cyclical behaviour
+            if curr_el_id in curr_path:
+                eop = True
+                # If so, cut out the cyclcal chain
+                curr_start = curr_path.index(curr_el_id)
             
             # Such that heteroatoms are not on the main chain
             if curr_el.el not in HETEROATOMS:
@@ -283,18 +311,20 @@ def run_path_iterative(chain: Chain):
 
             if eop:
                 # Checks if curr_path is a better main path than best_path
-                if _is_higher(best_path, curr_path, chain):
+                if _is_higher(best_path, curr_path[curr_start:], chain):
                     # New best_path
-                    best_path = curr_path
+                    best_path = curr_path[curr_start:]
                 print("Full path:")
                 print_field(
                     chain.field,
-                    highlights=[chain.id_pool[id] for id in curr_path]
+                    highlights=[chain.id_pool[id] for id in curr_path[curr_start:]],
+                    show_ids=True
                 )
             else:
                 for con in curr_el:
-                    if con.to_id not in curr_path:
-                        action_stack.append((len(curr_path), con.to_id))
+                    if con.dir != -origin_dir:
+                        action_stack.append((len(curr_path), con.to_id, con.dir))
+            eop = False
 
 
     return best_path
@@ -390,24 +420,17 @@ def run_chain(field):
     Go through the entirety of a chain field representation
     """
     chain = Chain(field)
-    # for pos_id in chain.edges:
-    #     print(f"Start from {chain.id_pool[pos_id]}")
-    #     # With path function
-    #     chain.main_path = run_path_recursive(chain,
-    #                             pos_id,
-    #                             path_stub=[],
-    #                             best_stub=chain.main_path
-    #                             )
+    
     chain.main_path = run_path_iterative(chain)
     if chain.main_path:
         print("Main chain:")
-        print_field(field, [chain.id_pool[id] for id in chain.main_path])
+        print_field(field,
+                    [chain.id_pool[id] for id in chain.main_path],
+                    show_ids=True)
     else:
         print("Empty field!") 
     # Elements info
     for pos_id in chain.main_path:
         chain.main_chain.append(chain.chain[pos_id])
-
-    # get_sub_groups(chain)
-
+    
     return chain

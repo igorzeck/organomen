@@ -30,7 +30,7 @@ from entities import *
 
 
 def main():
-    chain_path = "Chains/butanediol.field"
+    chain_path = "Chains/1-ethyl-3-methylcyclepentane.field"
 
     # Pathfinding
     c_main = Chain(chain_path)
