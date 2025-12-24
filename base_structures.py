@@ -27,14 +27,29 @@ class Pos:
 
 # -- Functions --
 # - File handling -
-def abrir_arq_chain(nome_arq):
-    """
-    Handles .chain file oppening
+def abrir_arq(nome_arq: str) -> tuple[tuple[str]]:
+    # Checks extension
+    _ext = nome_arq.partition('.')[-1].lower()
+    if _ext not in exts:
+        raise TypeError(f'File extension is not valid! Supported extensions:\n{exts}')
+    # Maybe a default dict with functions?
+    match _ext:
+        case 'field':
+            return _abrir_arq_field(nome_arq)
+        case _:
+            raise TypeError(f'\'{_ext}\' is not a supported extension!')
 
-    return: 2D matrix
+def _abrir_arq_field(nome_arq: str) -> tuple[tuple[str]]:
+    """
+    Handles .field file opening
+    
+    :param nome_arq: The name of the .field to open
+    :type nome_arq: str
+    :return: A 2D matrix
+    :rtype: tuple[tuple[str]]
     """
     with open(nome_arq, "r") as arq:
-        field = [[el.upper() for el in linha.split()] for linha in arq.readlines()]
+        field = tuple([tuple([el.upper() for el in linha.split()]) for linha in arq.readlines() if linha[0] != COMMENT_WILDCARD])
         # Upper case everything
         return field
 
@@ -82,6 +97,9 @@ def print_field(field: list[list],
     print("")
 
 # -- Constants --
+# - File related -
+COMMENT_WILDCARD = '#'
+exts = ['field']
 # Enun would be just lovely, but alas...
 # Connections directions
 NORTHWEST = -4

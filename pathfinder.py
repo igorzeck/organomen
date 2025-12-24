@@ -73,7 +73,7 @@ def run_subpath(chain: Chain, ent: Entity):
 
 # TODO: For same size subpaths, the ones with the most ramifications should be the main one
 # TODO: The lower position number should fallback to alphabetical order when equivalent positions
-def _is_higher(best: list, contender: list, chain: list[Entity]):
+def _is_higher(best: list[int], contender: list[int], chain: list[Entity]):
     """
     Checks if path is best fit to be the main one.
     
@@ -156,15 +156,19 @@ def _is_higher(best: list, contender: list, chain: list[Entity]):
         return False
 
     # 4. Group
+    # Maybe if gets at this point simulates as the main_path?
     if contender_group and best_group:
         if len(contender_group) > len(best_group):
             # Contender has more groups 
             return True
         elif len(contender_group) == len(best_group):
-            # TODO: Checks to see if, in alphabetical order, the lowets is closest
             # Checks the one with the closest group
             if min(contender_group) < min(best_group):
                 return True
+            # Now it should check if it's in alphabetical order
+            # I shot myself in the foot here, perhaps
+            # TODO: Move the subpath resolvers outside de classifier class
+            # For now I will ignore the alpabetical order
         else:
             # Current best has more groups
             False
@@ -330,33 +334,36 @@ def run_path_iterative(chain: Chain):
     return best_path
 
 
+# OBSOLETE
 def get_sub_groups(chain: Chain):
     # Get substitutive groups
     to_highlight: Pos = []
     groups: list[list[Entity]] = []
     for ent in chain.main_chain:
         # Iterates through all connections outside main_chain
+        # Wouldn't the code bellow also work for the main_chain directly
         for con in ent:
-            if con.to_id not in chain.main_path:
+            if con.to_id not in chain.chain_path:
                 # Follows lead
-                groups.append(follow_subpath(chain.chain, chain.main_path, [], con.dir, con.to_id))
-                print("Captured group:\n",groups)
+                groups.append(follow_subpath(chain.chain, chain.chain_path, [], con.dir, con.to_id))
+                print("Captured groups:\n",groups)
 
-        if any([con.to_id not in chain.main_path for con in ent.cons]):
+        if any([con.to_id not in chain.chain_path for con in ent.cons]):
             to_highlight.append(chain.id_pool[ent.id])
     print_field(chain.field, to_highlight, highlight_color_only=True)
+    return groups
 
 
 # TODO: Generalize as the main pathfinder?
-def follow_subpath(chain: list[Entity], main_path: list[Entity], group: list[Entity], origin_dir: int, curr_id: int, cont: int = 0):
+def follow_subpath(chain: list[Entity], main_path: list[int], group: list[Entity], origin_dir: int, curr_id: int, cont: int = 0):
     """
     Follow subpath recursively (at each junction) until
-    all entities outside of main_path are in group
+    all entities outside of main_path are in a group
     
     :param chain: Chain with all entities
     :type chain: list[Entity]
-    :param main_path: Main path (acts as mask to keep on group)
-    :type main_path: list[Entity]
+    :param main_path: Main chain path (acts as mask to keep on group)
+    :type main_path: list[int]
     :param group: Group of unique entities on this. Needs to be 
     inserted initally as a empty list for safe-copy reasons
     :type group: list[Entity]
@@ -408,8 +415,6 @@ def follow_subpath(chain: list[Entity], main_path: list[Entity], group: list[Ent
 
         _cycled = ent in group
         _back_at_main = ent in main_path
-
-
     return group
 
 
@@ -421,16 +426,6 @@ def run_chain(field):
     """
     chain = Chain(field)
     
-    chain.main_path = run_path_iterative(chain)
-    if chain.main_path:
-        print("Main chain:")
-        print_field(field,
-                    [chain.id_pool[id] for id in chain.main_path],
-                    show_ids=True)
-    else:
-        print("Empty field!") 
-    # Elements info
-    for pos_id in chain.main_path:
-        chain.main_chain.append(chain.chain[pos_id])
+    chain.set_main_path(run_path_iterative(chain))
     
     return chain

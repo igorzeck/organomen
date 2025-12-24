@@ -4,7 +4,7 @@
 # 3. Host by Host (plus its groups)
 # 4. Entire chain
 # -- Imports --
-from base_structures import Pos, HETEROATOMS, HALIDES, SIMPLE, DOUBLE, TRIPLE, QUADRUPLE  # ... No comments...
+from base_structures import Pos, HETEROATOMS, HALIDES, SIMPLE, DOUBLE, TRIPLE, QUADRUPLE, print_field  # ... No comments...
 from pathfinder import scout, _get_host, run_subpath
 from entities import Chain, Entity
 
@@ -156,8 +156,11 @@ class Classifier:
                     
                     self.subgroups.append(_subgroup)
 
-                    print("Captured subgroup: ")
+                    print("Captured subgroup:")
                     print(_subgroup)
+                    print_field(self.chain.field,
+                                [self.chain.id_pool[el.id] for el in _subgroup],
+                                highlight_color_only=True)
                     
         # ID 0 is the main chain!
         for subg_id in range(1, len(self.subgroups)):
@@ -511,4 +514,6 @@ def class_chain(chain: Chain):
     suffix += _name_suffix(_classfier)
     
     chain.name = prefix + infix + suffix
-    return prefix + infix + suffix
+    chain.func_name = "NOT IMPLEMENTED!"
+    # TODO: Cyclan, Cyclin and whatnot?
+    chain.functional = _classfier.hclass + " " + _classfier.get_classif(0)

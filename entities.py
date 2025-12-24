@@ -1,6 +1,6 @@
 # TODO: Entity object with iter overload so you can get its connections
 # TODO: Make an field with id instead of elements and maybe negative for connections
-from base_structures import Pos, print_field, abrir_arq_chain, CD_OFFS, HETEROATOMS
+from base_structures import Pos, print_field, abrir_arq, CD_OFFS, HETEROATOMS
 from auxiliary import *
 
 # - Connection -
@@ -89,8 +89,9 @@ class Entity:
 
 # - Classes -
 # Single chain (only one path) representation
-# TODO: > and < shoudl compare size between chains!
+# TODO: > and < should compare size between chains!
 class Chain:
+    # Make it so its pssible to get pos from id
     def __init__(self, builder: str | list):
         """
         Paths are represented by an List of integer IDs
@@ -98,7 +99,7 @@ class Chain:
         """
         if isinstance(builder, str):
             self.load_file(builder)
-        elif isinstance(builder, list):
+        elif isinstance(builder, tuple):
             self.initiate(builder)
         else:
             raise TypeError('Builder is neither an file path (str) or field\'s list!')
@@ -127,6 +128,8 @@ class Chain:
 
         self.edges: list = []
 
+        self.elements = {'H': 0}
+
         # Create chain representation of the field
         # It indexes self.chain by id_pos
         for id_pos, pos in enumerate(self.id_pool):
@@ -141,23 +144,36 @@ class Chain:
                 if ent_str == 'C':
                     c_count += 1
             self.chain.append(Entity(id_pos, el_str, cons))
+
             # If is Carbon and with one connection
             # TODO: Handle Nitrogen (Maybe treat them as 'C' if detected)
             # Depends on the situation though!
             if (el_str == 'C' and c_count <= 1):
                 self.edges.append(id_pos)
+        
         # For now, if edgless - and there is more than 1 carbon -
         # the first position is given the honour of "edge"
         if self.edges == [] and len(self.id_pool) > 0:
             self.edges.append(0)
+
+        # - Elements info -
+        # Adds as element
+        for el in self.chain:
+            # Molecular formula
+            self._add_element(el)
+        
         # - Chemical properties -
         self.name = ""
         self.functional = ""
         self.func_name = ""
-
+        self.mol_formula = ""
+        
+        for el, num in self.elements.items():
+            if num:
+                self.mol_formula += el + str(num)
 
     def load_file(self, arq: str):
-        field: list[list[str]] = abrir_arq_chain(arq)
+        field: tuple[tuple[str]] = abrir_arq(arq)
         # Maybe is better to return those two isnt it?
         self.initiate(field)
     
@@ -170,6 +186,21 @@ class Chain:
                     pos_pool.append(Pos(row, col))
         return tuple(pos_pool)
     
+    def set_main_path(self, main_path: list[int]):
+        if main_path:
+            self.main_path = main_path
+            print("Main chain:")
+            print_field(self.field,
+                        [self.id_pool[id] for id in self.main_path],
+                        show_ids=True)
+        else:
+            # No need to raise an error I suppose!
+            print("Empty field!")
+        
+        # Main chain
+        for pos_id in self.main_path:
+            self.main_chain.append(self.chain[pos_id])
+        
     # - Chemistry related -
     def get_main_path_id(self, path_id: int):
         if path_id in self.main_path:
@@ -178,25 +209,29 @@ class Chain:
     def get_main_path_ids(self, path_ids: list[int]):
         for id in path_ids:
             yield self.get_main_path_id(id)
+
     # - Element-wise -
-    # def add_path(self, path):
-    #     """
-    #     Adds a new path if it is unique
-    #     """
-    #     if not self.paths:
-    #         self.paths.append(path)
-    #         return
-    #     for i_path in self.paths:
-    #         if (len(i_path) == len(path)) and (sorted(i_path) != sorted(path)):
-    #             self.paths.append(path)
-    #             break
     def get_main_path_size(self):
         return len(self.main_path)
+    
     def to_el(self, id: int, el: str = '') -> int:
         if el:
             return sum([self.chain[con.to_id].el == el for con in self.chain[id].cons])
         else:
             return len(self.chain[id].cons)
+    
+    def _add_element(self, el: Entity):
+        el_str = el.el
+        # The element itself
+        if el_str in self.elements:
+            print(self.elements[el_str])
+            self.elements[el_str] += 1
+        else:
+            self.elements[el_str] = 1
+
+        # Hydrogen bonds (if any)
+        self.elements['H'] += 4 - len(el.cons)
+    
     # - Visual -
     def print_ids(self):
         mock_field = [[0 for _ in range(self.n_col)] for __ in range(self.n_row)]
@@ -205,8 +240,9 @@ class Chain:
             mock_field[pos.row][pos.col] = i
         print_field(mock_field)
     def __str__(self):
-        summary = f"Name: {self.name}\
-                   Functional class: {self.functional}"
+        summary = f"Name: {self.name}\n"+\
+        f"Functional class: {self.functional}\n"+\
+        f"Molecular formula: {self.mol_formula}"
         return summary
     def __repr__(self):
         return self.__str__()
