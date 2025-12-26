@@ -25,14 +25,20 @@ from entities import *
 
 
 def main():
-    chain_path = "Chains/1-ethyl-3-methylcyclepentane.field"
+    chain_path = "Chains/1-ethyl-3-methylheptane.field"
 
     # Pathfinding
-    c_main = Chain(chain_path)
-    print(c_main.chain)
-    c_main = run_chain(c_main.field)
+    c_main = run_chain(chain_path)
     class_chain(c_main)
     print(c_main)
+
+    # c_test = Chain()
+    # c_test.load_chain(c_main.chain)
+    # print_field(c_test.field)
+    # c_test = run_chain(c_test.field)
+    # class_chain(c_test)
+    # print(c_test)
+
 
 
 # -- Start --

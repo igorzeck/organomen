@@ -117,6 +117,30 @@ DOUBLE = 2
 TRIPLE = 3
 QUADRUPLE = 4
 
+# Relative to N of Cs in main chain
+PREFIXES = [
+    '',
+    'met',
+    'et',
+    'prop',
+    'but',
+    'pent',
+    'hex',
+    'hept',
+    'oct',
+    'non',
+    'dec',
+    'undec',
+    'dodec',
+    'tridec',
+    'tetradec',
+    'pentadec',
+    'hexadec',
+    'heptadec',
+    'octadec',
+    'nonadec',
+    'icos'
+]
 
 # Atoms in all caps for ease of comparison
 HALIDES = {

@@ -28,8 +28,35 @@ def _get_host(main_chain: list[Entity], ent: Entity):
     return ent
 
 
-# TODO: Go to all ids not already in subpath list
-# If instead of recursion I use a stack of ids (FIFO)?
+def iterate_subpaths(chain: Chain,
+                     cyclical:bool = False) -> list[tuple[Entity]]:
+    """
+    Iterates and captures all subgroups connected to chain.main_chain
+    
+    :param chain: Chain object with main_chain correctly set
+    :type chain: Chain
+    :param cyclical: If it should iterate as a cyclical chain
+    :type cyclical: bool
+    :return: Subgroups (each group as a tuple) list of the captured subgroups
+    :rtype: list[tuple[Entity]]
+    """
+    subgroups = []
+    for main_ent in chain.main_chain[(1 if cyclical else 0):]:
+        for nxt_con in main_ent.cons:
+            nxt_ent = chain.chain[nxt_con.to_id]
+            if (nxt_ent not in chain.main_chain):
+                _subgroup = run_subpath(chain, nxt_ent)
+                
+                subgroups.append(_subgroup)
+
+                print(f"Captured subgroup ({len(subgroups)}):")
+                print(_subgroup)
+                print_field(chain.field,
+                            [chain.id_pool[el.id] for el in _subgroup],
+                            highlight_color_only=True)
+    return subgroups
+
+
 def run_subpath(chain: Chain, ent: Entity):
     """
     Explore all connections directions
@@ -73,7 +100,7 @@ def run_subpath(chain: Chain, ent: Entity):
 
 # TODO: For same size subpaths, the ones with the most ramifications should be the main one
 # TODO: The lower position number should fallback to alphabetical order when equivalent positions
-def _is_higher(best: list[int], contender: list[int], chain: list[Entity]):
+def _is_higher(best: list[int], contender: list[int], chain: Chain):
     """
     Checks if path is best fit to be the main one.
     
@@ -139,11 +166,13 @@ def _is_higher(best: list[int], contender: list[int], chain: list[Entity]):
         # 3. Closest group
         if len(curr_el) > 2:
             best_group.append(best.index(id))
+    
     # - Comparisons -
     # 1. Cyclicality
     if contender_cyclical ^ best_cyclical:
         # XOR operator above
         return contender_cyclical
+
     # 2. Heteroatoms
     if contender_hetero ^ best_hetero:
         return contender_hetero
@@ -156,19 +185,74 @@ def _is_higher(best: list[int], contender: list[int], chain: list[Entity]):
         return False
 
     # 4. Group
-    # Maybe if gets at this point simulates as the main_path?
     if contender_group and best_group:
+        # 4.1. Sees which one has the most groups
         if len(contender_group) > len(best_group):
             # Contender has more groups 
             return True
         elif len(contender_group) == len(best_group):
-            # Checks the one with the closest group
-            if min(contender_group) < min(best_group):
+            # Should minimize only closest (one iteration!)
+            # 4.2. Sees which one better follows alphabetical order
+            # 4.2.1. Find subgroups for each one and orders it
+            contender_mock_chain = chain
+            # For now changes real object (not recomended!!!)
+            # Though, appears to be a copy...?
+            contender_mock_chain.set_main_path(contender)
+
+            contender_subgs = iterate_subpaths(contender_mock_chain, contender_cyclical)
+
+            # Separate elements into different types
+            radical_types: dict = {}
+
+            # Fills radical_types (based on size)
+            for subg in contender_subgs:
+                n_els = len(subg) - 1
+                # Appends the position on the main chain
+                m_pos = contender_mock_chain.get_main_path_id(subg[0])
+                if n_els in radical_types:
+                    radical_types[n_els].append(m_pos)
+                else:
+                    radical_types[n_els] = [m_pos]
+            # Sorts radical_types ids in their names alphabetical order
+            contender_func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
+            # Zips names with their values
+            contender_pair_names = list(zip(contender_func_names, radical_types.values()))
+            # Orders based on first element (a.k.a its name)
+            contender_pair_names.sort(key=lambda el: el[0])
+
+            best_mock_chain = chain
+            # Techically is a copy!
+            best_mock_chain.set_main_path(best)
+
+            best_subgs = iterate_subpaths(best_mock_chain, best_cyclical)
+
+            # Separate elements into different types
+            radical_types: dict = {}
+
+            # Fills radical_types (based on size)
+            # TODO: Finish this logic!
+            for subg in best_subgs:
+                n_els = len(subg) - 1
+                # Appends the position on the main chain
+                m_pos = best_mock_chain.get_main_path_id(subg[0])
+                if n_els in radical_types:
+                    radical_types[n_els].append(m_pos)
+                else:
+                    radical_types[n_els] = [m_pos]
+            # Sorts radical_types ids in their names alphabetical order
+            best_func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
+            # Zips names with their values
+            best_pair_names = list(zip(best_func_names, radical_types.values()))
+            # Orders based on first element (a.k.a its name)
+            best_pair_names.sort(key=lambda el: el[0])
+                
+            # 4.2.2. Sees which one has the closes group to the start of the path
+            contender_first_pair = contender_pair_names[0]
+            best_first_pair = best_pair_names[0]
+            # TODO: I need to know If a priorize longer radicals
+            # Compares their main chain position
+            if contender_first_pair[1][0] < best_first_pair[1][0]:
                 return True
-            # Now it should check if it's in alphabetical order
-            # I shot myself in the foot here, perhaps
-            # TODO: Move the subpath resolvers outside de classifier class
-            # For now I will ignore the alpabetical order
         else:
             # Current best has more groups
             False
@@ -420,11 +504,11 @@ def follow_subpath(chain: list[Entity], main_path: list[int], group: list[Entity
 
 # TODO: Insert chain as a parameter
 # TODO: It needs to start and end at an edge!s
-def run_chain(field):
+def run_chain(builder: tuple[tuple[str]] | str):
     """
     Go through the entirety of a chain field representation
     """
-    chain = Chain(field)
+    chain = Chain(builder)
     
     chain.set_main_path(run_path_iterative(chain))
     

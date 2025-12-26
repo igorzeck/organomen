@@ -92,19 +92,22 @@ class Entity:
 # TODO: > and < should compare size between chains!
 class Chain:
     # Make it so its pssible to get pos from id
-    def __init__(self, builder: str | list):
+    def __init__(self, builder: str | list = None):
         """
         Paths are represented by an List of integer IDs
         builder: field array or path string
         """
         if isinstance(builder, str):
             self.load_file(builder)
-        elif isinstance(builder, tuple):
+        elif isinstance(builder, tuple) or isinstance(builder, list):
             self.initiate(builder)
+        elif builder is None: # Empty chain 
+            pass
         else:
             raise TypeError('Builder is neither an file path (str) or field\'s list!')
     
     # - Class related -
+    # TODO: Refactor this whole mess
     def initiate(self, field: list[str]):
         # - Field -
         self.field = field
@@ -172,8 +175,12 @@ class Chain:
             if num:
                 self.mol_formula += el + str(num)
 
-    def load_file(self, arq: str):
-        field: tuple[tuple[str]] = abrir_arq(arq)
+    def load_file(self, filename: str):
+        field: tuple[tuple[str]] = abrir_arq(filename)
+        self.initiate(field)
+
+    def load_chain(self, chain: list[Entity]):
+        field: tuple[tuple[str]] = self._make_field(chain)
         # Maybe is better to return those two isnt it?
         self.initiate(field)
     
@@ -186,6 +193,84 @@ class Chain:
                     pos_pool.append(Pos(row, col))
         return tuple(pos_pool)
     
+    def _make_field(self, chain: list[Entity]):
+        """
+        Make field from a list of entities.
+        
+        :param self: Chain object
+        :param chain: List of entities
+        :type chain: list[Entity]
+        """
+        # - Variables -
+        field: list[str] = []
+        coords: list[Pos] = []
+        els: list[str] = []
+        
+        curr_pos: Pos = Pos(0, 0)
+
+        # (ID, Entity, Direction, Current Position)
+        action_stack: list[tuple] = []
+        
+        if chain:
+            curr_ent_id: int = 0
+            curr_entity: Entity = chain[curr_ent_id]
+            curr_dir: int = 0
+            curr_type: int = 0
+            action_stack.append((curr_ent_id, curr_entity, curr_dir, curr_pos, curr_type))
+
+            # First one is the starting atom
+            coords.append(curr_pos)
+            els.append(curr_entity.el)
+
+        # 1. Give a 2D coordinate for each entity ((0,0) for the first one)
+        while action_stack:
+            # Descompacts current action info
+            curr_ent_id, curr_entity, curr_dir, curr_pos, curr_type = action_stack.pop()
+            
+            # Get current position (of connection) based on direction
+            if curr_dir != 0:
+                curr_pos += CD_OFFS[curr_dir]
+
+                # Connection
+                coords.append(curr_pos)
+                els.append(curr_type)
+
+                # Only if the is curr_type
+                curr_pos += CD_OFFS[curr_dir]
+
+                # Atom
+                coords.append(curr_pos)
+                els.append(curr_entity.el)
+
+            # Adds next step(s) to action stack
+            for con in curr_entity:
+                if con.dir != -curr_dir:
+                    action_stack.append((curr_entity.id,
+                                         chain[con.to_id],
+                                         con.dir,
+                                         curr_pos,
+                                         con.type))
+
+        
+        # 2. Use coords to fill field out
+        # First, need to find maximum and minium in each axis
+        min_row = min(coords, key=lambda coord: coord.row).row
+        min_col = min(coords, key=lambda coord: coord.col).col
+
+        max_row = max(coords, key=lambda coord: coord.row).row
+        max_col = max(coords, key=lambda coord: coord.col).col
+
+        field = [['0' for _ in range(min_col, max_col + 1)] for _ in range(min_row, max_row + 1)]
+
+        for row in range(min_row, max_row + 1):
+            for col in range(min_col, max_col + 1):
+                curr_pos = Pos(row, col)
+                normalized_pos = curr_pos + Pos(abs(min_row), abs(min_col))
+                if curr_pos in coords:
+                    curr_pos_id = coords.index(curr_pos)
+                    field[normalized_pos.row][normalized_pos.col] = str(els[curr_pos_id])
+        return field
+
     def set_main_path(self, main_path: list[int]):
         if main_path:
             self.main_path = main_path
@@ -193,6 +278,7 @@ class Chain:
             print_field(self.field,
                         [self.id_pool[id] for id in self.main_path],
                         show_ids=True)
+            self.main_chain = []
         else:
             # No need to raise an error I suppose!
             print("Empty field!")
@@ -200,7 +286,18 @@ class Chain:
         # Main chain
         for pos_id in self.main_path:
             self.main_chain.append(self.chain[pos_id])
+    
+    def copy(self):
+        """
+        Returns copy of itself
         
+        :param self: Description
+        :return: Chain copy
+        :rtype: Chain
+        """
+        cchain = Chain()
+        # TODO: Complete this
+        return cchain
     # - Chemistry related -
     def get_main_path_id(self, path_id: int):
         if path_id in self.main_path:
@@ -224,7 +321,6 @@ class Chain:
         el_str = el.el
         # The element itself
         if el_str in self.elements:
-            print(self.elements[el_str])
             self.elements[el_str] += 1
         else:
             self.elements[el_str] = 1
