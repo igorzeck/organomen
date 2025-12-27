@@ -1,6 +1,7 @@
 # TODO: Entity object with iter overload so you can get its connections
 # TODO: Make an field with id instead of elements and maybe negative for connections
-from base_structures import Pos, print_field, abrir_arq, CD_OFFS, HETEROATOMS
+from base_structures import Pos, print_field, abrir_arq, CD_OFFS
+from constants import *
 from auxiliary import *
 
 # - Connection -

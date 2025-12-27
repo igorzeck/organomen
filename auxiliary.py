@@ -1,4 +1,4 @@
-from base_structures import Pos, CD_OFFS, PREFIXES
+from base_structures import Pos, CD_OFFS
 # Pathfinding and scout base functions
 
 # -- Functions --

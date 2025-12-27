@@ -4,7 +4,8 @@
 # 3. Host by Host (plus its groups)
 # 4. Entire chain
 # -- Imports --
-from base_structures import Pos, HETEROATOMS, PREFIXES, HALIDES, SIMPLE, DOUBLE, TRIPLE, QUADRUPLE, print_field  # ... No comments...
+from base_structures import Pos, print_field
+from constants import *
 from pathfinder import scout, _get_host, iterate_subpaths
 from entities import Chain, Entity
 from auxiliary import pair_subgs
@@ -17,39 +18,6 @@ from auxiliary import pair_subgs
 # -- Naming --
 # - Name prefix -
 # - Constants -
-UNRESOLVED = 'UNRESOLVED'
-
-# Functional look-up table with composite key index
-functional_sub = {
-    'Hydrocarbon':'',
-    'Alcohol':'Alcohol'
-}
-
-INFIXES = [
-    'UNDER',
-    'an',
-    'en',
-    'yn'
-]
-
-AFIXES = {
-    'Ether':'oxi',
-    'Radical':'hyl',
-}
-
-# Relative to chain functional class
-# Maybe use a default dict?
-SUFFIXES = {
-    'Hydrocarbon':'e',
-    'Alcohol':'ol',
-    'Aldehyde':'al',
-    'Acid':'oic',
-    'Keton':'ona',
-    'Ether':'e',
-    'Halides':'e',  # Kinda hacky, not gonna lie...
-    UNRESOLVED:'NONE',
-}
-
 CON_Q = [
         '', # Possible for hydrocarbons
         '',
@@ -70,7 +38,7 @@ class Classifier:
         # Define higher class of the compound
         # For example, cyclane and cyclene would have the same higher class (Hydrocarbon)
         # Fenol would be an Alcohol and etc.
-        self.hclass: str = "UNCLASSIFIED"
+        self.hclass: str = {}
 
         # First subgroup is main chain itself
         self.subgroups: list[tuple[Entity]] = [tuple(chain.main_chain)]
@@ -103,8 +71,19 @@ class Classifier:
             else:
                 self.classif_by_host[_host_id] = [_class]
 
+    # TODO: Make it less awkward..
     def get_hclass(self) -> str:
-        return self.hclass
+        return list(self.hclass.keys())[0]
+    
+    def get_trad_hclass(self, plural: bool = False) -> str:
+        """
+        Returns translated higher classification (for print purpose)
+        
+        :param self: Classifier object
+        :return: Translated higher class
+        :rtype: str
+        """
+        return list(self.hclass.values())[0] + (PLURAL_STR if plural else '')
 
     def get_classif(self, id: int) -> str:
         for classif in self.classif:
@@ -132,7 +111,7 @@ class Classifier:
         # 0. Is it a cycle?
         if (self.subgroups[subg_id][0] == self.subgroups[subg_id][-1]) and\
             (len(self.subgroups[subg_id]) > 1):
-            self._append_classif('Cycle', subg_id)
+            self._append_classif(CLASSIFICATION['Cycle'], subg_id)
         # 1. Has an hteroatom?
         if any([ent.is_hetero() for ent in self.subgroups[subg_id]]):
             # print(f"{self.subgroups[subg_id]} has an heteroatom!")
@@ -146,10 +125,10 @@ class Classifier:
                 # Tries to resolve main chain class
                 self._resolve_hclass()
                 if self.get_classif(0) == UNRESOLVED:
-                    self._append_classif('Chain', subg_id)
+                    self._append_classif(CLASSIFICATION['Chain'], subg_id)
             else:
                 # If not, treat as a radical
-                self._append_classif('Radical', subg_id)
+                self._append_classif(CLASSIFICATION['Radical'], subg_id)
     
     # This way runs two times though...
     # - Oxygen -
@@ -167,16 +146,16 @@ class Classifier:
                             self.chain.to_el(ent.id,'C') == 1:
                         # print('Is an alcohol!')
                         # self.classif[subg_id] = [_host.id, 'Alcohol']
-                        self._append_classif('Alcohol', subg_id)
+                        self._append_classif(CLASSIFICATION['Alcohol'], subg_id)
                     if any([(con.to_id == _host.id)\
                              and\
                             (con.type == DOUBLE)\
                             for con in ent.cons]):
                         # print('Is an aldehyde!')
-                        self._append_classif('Aldehyde', subg_id)
+                        self._append_classif(CLASSIFICATION['Aldehyde'], subg_id)
                     if (self.chain.to_el(ent.id,'C') == 2):
                        # For now flags it if there is 2 connection to carbons
-                       self._append_classif('Ether', subg_id)
+                       self._append_classif(CLASSIFICATION['Ether'], subg_id)
     
     # - Halides -
     def _is_halide(self, subg_id: int):
@@ -195,18 +174,18 @@ class Classifier:
     def _resolve_hclass(self) -> str:
         for _host in self.classif_by_host:
             _host_classif = self.classif_by_host[_host]
-            has_alcohol = 'Alcohol' in _host_classif
-            has_ether = 'Ether' in _host_classif
-            has_keton = 'Keton' in _host_classif
+            has_alcohol = CLASSIFICATION['Alcohol'] in _host_classif
+            has_ether = CLASSIFICATION['Ether'] in _host_classif
+            has_keton = CLASSIFICATION['Keton'] in _host_classif
             if has_alcohol:
-                self.hclass = 'Alcohol'
+                self.hclass = {'Alcohol':CLASSIFICATION['Alcohol']}
             if has_ether and has_keton:
-                self.hclass = 'Ester'
+                self.hclass = {'Ester':CLASSIFICATION['Ester']}
             if has_ether:
-                self.hclass = 'Ether'
+                self.hclass = {'Ether':CLASSIFICATION['Ether']}
             if has_keton:
-                self.hclass = 'Keton'
-        self.hclass = 'Hydrocarbon'
+                self.hclass = {'Keton':CLASSIFICATION['Keton']}
+        self.hclass = {'Hydrocarbon':CLASSIFICATION['Hydrocarbon']}
 
 # - Function -
 # - Helpers -
@@ -466,4 +445,7 @@ def class_chain(chain: Chain):
     chain.name = prefix + infix + suffix
     chain.func_name = "NOT IMPLEMENTED!"
     # TODO: Cyclan, Cyclin and whatnot?
-    chain.functional = _classfier.hclass + " " + _classfier.get_classif(0)
+    if REVERSE_STR:
+        chain.functional = _classfier.get_classif(0) + CON_STR + _classfier.get_trad_hclass(plural=True)
+    else:    
+        chain.functional = _classfier.get_trad_hclass(plural=True) + CON_STR + _classfier.get_classif(0)

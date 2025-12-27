@@ -1,3 +1,4 @@
+from constants import *
 # -- Classes --
 class Pos:
     """
@@ -30,8 +31,8 @@ class Pos:
 def abrir_arq(nome_arq: str) -> tuple[tuple[str]]:
     # Checks extension
     _ext = nome_arq.partition('.')[-1].lower()
-    if _ext not in exts:
-        raise TypeError(f'File extension is not valid! Supported extensions:\n{exts}')
+    if _ext not in EXTS:
+        raise TypeError(f'File extension is not valid! Supported extensions:\n{EXTS}')
     # Maybe a default dict with functions?
     match _ext:
         case 'field':
@@ -97,62 +98,6 @@ def print_field(field: list[list],
     print("")
 
 # -- Constants --
-# - File related -
-COMMENT_WILDCARD = '#'
-exts = ['field']
-# Enun would be just lovely, but alas...
-# Connections directions
-NORTHWEST = -4
-NORTH = -3
-NORTHEAST = -2
-WEST = -1
-EAST = 1
-SOUTHWEST = 2
-SOUTH = 3
-SOUTHEAST = 4
-
-# Connection type
-SIMPLE = 1
-DOUBLE = 2
-TRIPLE = 3
-QUADRUPLE = 4
-
-# Relative to N of Cs in main chain
-PREFIXES = [
-    '',
-    'met',
-    'et',
-    'prop',
-    'but',
-    'pent',
-    'hex',
-    'hept',
-    'oct',
-    'non',
-    'dec',
-    'undec',
-    'dodec',
-    'tridec',
-    'tetradec',
-    'pentadec',
-    'hexadec',
-    'heptadec',
-    'octadec',
-    'nonadec',
-    'icos'
-]
-
-# Atoms in all caps for ease of comparison
-HALIDES = {
-    'F':'Fluorine',
-    'CL':'Clhorine',
-    'BR':'Bromine',
-    'I':'Iodine'
-}
-
-# Merges dictionaries ( Python >= 3.9.0 )
-HETEROATOMS = HALIDES | {'O':'Oxygen'}
-
 # Coordinates associated with each connection
 # -4 -3 -2
 # -1  C  1
@@ -167,6 +112,3 @@ CD_OFFS = {
     3:Pos(1, 0),
     4:Pos(1, 1),
 }
-
-# Failsafe for iterative routines
-MAX_ITER = 21

@@ -19,10 +19,12 @@
 # TODO: Make rules for hyphens better!
 # TODO: Ver sobre integrar com formato de arquivos como o do https://pubchem.ncbi.nlm.nih.gov/compound/6-Ethyl-3-methylnonane#section=DSSTox-Substance-ID
 # -- Imports --
+# from base_structures import load_constants
+# load_constants(lang = 'pt-br')  # Load constants based on language
+
 from pathfinder import run_chain
 from classification import class_chain
 from entities import *
-
 
 def main():
     chain_path = "Chains/1-ethyl-3-methylheptane.field"
