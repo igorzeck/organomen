@@ -117,6 +117,14 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
     # - Checks for early exit -
     if not best:
         return True
+
+    # - Check if it's an amine -
+    # Kinda buklsome though...
+    # for el_id in contender:
+    #     el = chain.chain[el_id]
+    #     if el == 'N':
+    #         # Checks connection
+    #         pass
     # - Check variables -
     contender_cyclical = False
     best_cyclical = False
@@ -360,24 +368,27 @@ def run_path_iterative(chain: Chain):
         # End of Path flag
         eop = False
 
-        # Appends initial direction on action stack
-        for con in curr_el:
-            action_stack.append((len(curr_path), con.to_id, con.dir))
+        # Checks to see if it's an ntriogen edge
+        if curr_el == "N":
+            best_path = curr_path
+        else:
+            # Appends initial direction on action stack
+            for con in curr_el:
+                action_stack.append((len(curr_path), con.to_id, con.dir))
 
         # Follows action_stack
         while action_stack:
             curr_start = 0
             # Goes to the next unless is an Nitrogen edge
-            if not curr_el.el == 'N':
-                curr_path_id, curr_el_id, origin_dir = action_stack.pop()
-                curr_el = chain.chain[curr_el_id]
-                print_field(
-                    chain.field,
-                    highlights=[chain.id_pool[curr_el_id]]
-            )
-            else:
-                action_stack.clear()
-
+            # If it's an nitrogen edge, it MUST be a amine
+            # (That's the only way for an heteroatom to be an edge here)
+            # A little out there code though
+            curr_path_id, curr_el_id, origin_dir = action_stack.pop()
+            curr_el = chain.chain[curr_el_id]
+            print_field(
+                chain.field,
+                highlights=[chain.id_pool[curr_el_id]])
+                
             # - End of Path check -
             # At edge
             eop = (curr_el in chain.edges)

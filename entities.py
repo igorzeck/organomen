@@ -136,24 +136,32 @@ class Chain:
 
         # Create chain representation of the field
         # It indexes self.chain by id_pos
+        _nitrogen_chain = False
         for id_pos, pos in enumerate(self.id_pool):
             el_str = field[pos.row][pos.col]
             con_info = scout(field, self.id_pool, id_pos, nxt_dir=True, nxt_con_val=True, nxt_str=True)
             # Connections
             cons = []
             c_count = 0
+            all_count = 0
             for raw_con in con_info:
                 nxt_id, dir, type, ent_str = raw_con
                 cons.append(Connection(id_pos, nxt_id, dir, type))
                 if ent_str == 'C':
                     c_count += 1
+                all_count += 1
             self.chain.append(Entity(id_pos, el_str, cons))
 
             # If is Carbon and with one connection
             # TODO: Handle Nitrogen (Maybe treat them as 'C' if detected)
             # Depends on the situation though!
-            if (el_str == 'C' and c_count <= 1):
+            if (el_str == 'C' and c_count <= 1) and (not _nitrogen_chain):
                 self.edges.append(id_pos)
+            # If there is a Nitrogen with ONLY connections to Cs, turns into
+            # An edge (amine/amide)
+            if (el_str == 'N' and c_count == all_count):
+                self.edges = [id_pos]
+                _nitrogen_chain = True
         
         # For now, if edgless - and there is more than 1 carbon -
         # the first position is given the honour of "edge"
@@ -174,7 +182,8 @@ class Chain:
         
         for el, num in self.elements.items():
             if num:
-                self.mol_formula += el + str(num)
+                self.mol_formula += f"{el}" +\
+                    f"\033[38;5;232m{str(num)}\033[0m"
 
     def load_file(self, filename: str):
         field: tuple[tuple[str]] = abrir_arq(filename)

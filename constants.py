@@ -9,7 +9,8 @@ EXTS = ['field']
 REVERSE_STR = False
 CON_STR = ''
 PLURAL_STR = 's'
-# Enun would be just lovely, but alas...
+
+# Enums would be just lovely, but alas...
 # Connections directions
 NORTHWEST = -4
 NORTH = -3

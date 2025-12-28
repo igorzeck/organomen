@@ -8,6 +8,7 @@
 # of paths, which in turn define how
 # the chain is named
 
+# TODO: Should 'di', 'tri' and whatnot count towards the alphabetical ordering?
 # TODO: Refactor (or add) docstring for functions!!!
 # TODO: make unique hold only unique paths
 # TODO: Organize in different files and make the integration with Chain class better
@@ -27,7 +28,7 @@ from classification import class_chain
 from entities import *
 
 def main():
-    chain_path = "Chains/1-ethyl-3-methylheptane.field"
+    chain_path = ".Chains/metoxyetane.field"
 
     # Pathfinding
     c_main = run_chain(chain_path)

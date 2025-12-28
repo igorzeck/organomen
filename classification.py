@@ -58,22 +58,25 @@ class Classifier:
         else:
             self.classif[_class] = [subg_id]
         
-        if subg_id != 0:
-            _host_id = self.subgroups[subg_id][0].id
+        # if subg_id != 0:
+        _host_id = self.subgroups[subg_id][0].id
 
-            if _class in self.host_by_classif:
-                self.host_by_classif[_class].append(_host_id)
-            else:
-                self.host_by_classif[_class] = [_host_id]
-            
-            if _host_id in self.classif_by_host:
-                self.classif_by_host[_host_id].append(_class)
-            else:
-                self.classif_by_host[_host_id] = [_class]
+        if _class in self.host_by_classif:
+            self.host_by_classif[_class].append(_host_id)
+        else:
+            self.host_by_classif[_class] = [_host_id]
+        
+        if _host_id in self.classif_by_host:
+            self.classif_by_host[_host_id].append(_class)
+        else:
+            self.classif_by_host[_host_id] = [_class]
 
     # TODO: Make it less awkward..
     def get_hclass(self) -> str:
-        return list(self.hclass.keys())[0]
+        if self.hclass:
+            return list(self.hclass.keys())[0]
+        else:
+            return ""
     
     def get_trad_hclass(self, plural: bool = False) -> str:
         """
@@ -89,19 +92,29 @@ class Classifier:
         for classif in self.classif:
             if id in self.classif[classif]:
                 return classif
+        return 'UNRESOLVED'
+
+    def get_trad_classif(self, id: int) -> str:
+        for classif in self.classif:
+            if id in self.classif[classif]:
+                return CLASSIFICATION[classif]
         return UNRESOLVED
     
     # - Chemical logic -
     def _define_subgroups(self):
         # TODO: Cleanup
         # Starts from a point on the main_chains
-        cyclical = self.get_classif(0) == "Cycle"
+        cyclical = self.get_classif(0) == 'Cycle'
         self.subgroups.extend(iterate_subpaths(self.chain, cyclical))
                     
         # ID 0 is the main chain!
         for subg_id in range(len(self.subgroups) - 1, -1, -1):
             self._root_question(subg_id) # So ends with main chain classification
 
+        # Resolves main class
+        self.hclass = self._resolve_hclass()
+        if self.get_classif(0) == 'UNRESOLVED':
+            self._append_classif('Chain', subg_id)
         print("Classifications:", self.classif)
 
     # - Classification logic - 
@@ -111,26 +124,38 @@ class Classifier:
         # 0. Is it a cycle?
         if (self.subgroups[subg_id][0] == self.subgroups[subg_id][-1]) and\
             (len(self.subgroups[subg_id]) > 1):
-            self._append_classif(CLASSIFICATION['Cycle'], subg_id)
+            self._append_classif('Cycle', subg_id)
         # 1. Has an hteroatom?
         if any([ent.is_hetero() for ent in self.subgroups[subg_id]]):
             # print(f"{self.subgroups[subg_id]} has an heteroatom!")
             # If it does
+            self._is_nitrogenic(subg_id)
             self._is_oxy(subg_id)
             self._is_halide(subg_id)
         else:
             # print(f"{self.subgroups[subg_id]} does NOT have an heteroatom!")
             # If it doesn't, is it the main chain?
-            if subg_id == 0:
-                # Tries to resolve main chain class
-                self._resolve_hclass()
-                if self.get_classif(0) == UNRESOLVED:
-                    self._append_classif(CLASSIFICATION['Chain'], subg_id)
-            else:
+            if subg_id != 0:
                 # If not, treat as a radical
-                self._append_classif(CLASSIFICATION['Radical'], subg_id)
+                self._append_classif('Radical', subg_id)
     
     # This way runs two times though...
+    # TODO: Merge it all in a single function!
+    # - Nitrogenic -
+    def _is_nitrogenic(self, subg_id: int):
+        if any([ent.el == 'N' for ent in self.subgroups[subg_id]]):
+            for ent in self.subgroups[subg_id]:
+                if ent == 'N':
+                    if len(self.subgroups[subg_id]) > 1:  # If not only one single nitrogen
+                        if (self.chain.to_el(ent.id,'O') == 2) and\
+                                (self.chain.to_el(ent.id,'C') == 1):
+                            self._append_classif('Nitro', subg_id)
+                        else:
+                            self._append_classif('Radical', subg_id)
+                    elif subg_id == 0: # Only the main chain can get here
+                        # TODO: Add "Amide"
+                        self._append_classif('Amine', subg_id)
+
     # - Oxygen -
     def _is_oxy(self, subg_id: int):
         if any([ent.el == 'O' for ent in self.subgroups[subg_id]]):
@@ -146,16 +171,16 @@ class Classifier:
                             self.chain.to_el(ent.id,'C') == 1:
                         # print('Is an alcohol!')
                         # self.classif[subg_id] = [_host.id, 'Alcohol']
-                        self._append_classif(CLASSIFICATION['Alcohol'], subg_id)
+                        self._append_classif('Alcohol', subg_id)
                     if any([(con.to_id == _host.id)\
                              and\
                             (con.type == DOUBLE)\
                             for con in ent.cons]):
                         # print('Is an aldehyde!')
-                        self._append_classif(CLASSIFICATION['Aldehyde'], subg_id)
+                        self._append_classif('Aldehyde', subg_id)
                     if (self.chain.to_el(ent.id,'C') == 2):
                        # For now flags it if there is 2 connection to carbons
-                       self._append_classif(CLASSIFICATION['Ether'], subg_id)
+                       self._append_classif('Ether', subg_id)
     
     # - Halides -
     def _is_halide(self, subg_id: int):
@@ -174,29 +199,35 @@ class Classifier:
     def _resolve_hclass(self) -> str:
         for _host in self.classif_by_host:
             _host_classif = self.classif_by_host[_host]
-            has_alcohol = CLASSIFICATION['Alcohol'] in _host_classif
-            has_ether = CLASSIFICATION['Ether'] in _host_classif
-            has_keton = CLASSIFICATION['Keton'] in _host_classif
+            is_amine = 'Amine' in _host_classif
+            is_amide = 'Amide' in _host_classif
+            has_alcohol = 'Alcohol' in _host_classif
+            has_ether = 'Ether' in _host_classif
+            has_keton = 'Keton' in _host_classif
+
+            if is_amine or is_amide:
+                return {'Nitrogenic':CLASSIFICATION['Nitrogenic']}
             if has_alcohol:
-                self.hclass = {'Alcohol':CLASSIFICATION['Alcohol']}
+                return {'Alcohol':CLASSIFICATION['Alcohol']}
             if has_ether and has_keton:
-                self.hclass = {'Ester':CLASSIFICATION['Ester']}
+                return {'Ester':CLASSIFICATION['Ester']}
             if has_ether:
-                self.hclass = {'Ether':CLASSIFICATION['Ether']}
+                return {'Ether':CLASSIFICATION['Ether']}
             if has_keton:
-                self.hclass = {'Keton':CLASSIFICATION['Keton']}
-        self.hclass = {'Hydrocarbon':CLASSIFICATION['Hydrocarbon']}
+                return {'Keton':CLASSIFICATION['Keton']}
+        return {'Hydrocarbon':CLASSIFICATION['Hydrocarbon']}
 
 # - Function -
 # - Helpers -
-# Get connection infix
-def con_infix(ids: int = [], hide_ids = True):
+# Get connections infix
+def con_infix(ids: int = [], hide_ids = True, trailing_hyphen = True):
     n = len(ids)
+    _trailing = '-' if trailing_hyphen else ''
     if n < len(CON_Q):
         if hide_ids or n == 0:
             return CON_Q[n]
         else:
-            return '-' + ','.join(map(str, ids)) + '-'
+            return _trailing + ','.join(map(str, ids)) + '-'
     else:
         return 'UNSUPPORTED'
 
@@ -239,7 +270,7 @@ def _name_con_type(cons: list) -> str:
     return infix
 
 
-def _name_radical(classific: Classifier) -> str:
+def _name_radical(classific: Classifier, hide_ids = False) -> str:
     final_str = ''
 
     # TODO: each class in a function and auxiliary functions should be made!
@@ -319,9 +350,7 @@ def _name_radical(classific: Classifier) -> str:
             if rt_len < len(CON_Q):
                 n_str += CON_Q[rt_len]
 
-            if final_str:
-                final_str += '-'
-            final_str += ','.join(func_pos) + '-' + n_str
+            final_str += con_infix(func_pos, hide_ids, trailing_hyphen=(len(final_str) != 0))
             # - Functional name -
             if 'Cycle' in classific.classif:
                 if n_type in classific.classif['Cycle']:
@@ -378,7 +407,7 @@ def _name_radical(classific: Classifier) -> str:
     return final_str
 
 
-def _name_suffix(classific: Classifier) -> str:
+def _name_suffix(classific: Classifier, hide_ids = False) -> str:
     final_str = ''
     main_classif = classific.get_hclass()
     # - Functional positions (ids) -
@@ -387,7 +416,7 @@ def _name_suffix(classific: Classifier) -> str:
         # Counts position
         _ids = classific.host_by_classif[main_classif]
         _main_ids = list(classific.chain.get_main_path_ids(_ids))
-    final_str += con_infix(_main_ids, hide_ids=False)
+    final_str += con_infix(_main_ids, hide_ids)
     # - Functional suffix -
     final_str += SUFFIXES[classific.get_hclass()]
     return final_str
@@ -397,13 +426,16 @@ def class_chain(chain: Chain):
     if not chain.main_path:
         return "Chain is empty!"
 
-    prefix = infix = suffix = ''
+    prefix = qte_prefix = infix = suffix = ''
     # Clasificates chain
     # TODO: Make it less redundant... Two ways to classify huh???
     # chain.functional = _get_class(chain)
     _classfier = Classifier(chain)
 
-    prefix = _name_radical(_classfier)
+    _is_nitrogenic = _classfier.get_hclass() == 'Nitrogenic'
+    _is_oxygenic = _classfier.get_hclass() == 'Ester' or _classfier.get_hclass() == 'Ether'
+    
+    prefix = _name_radical(_classfier, hide_ids=_is_nitrogenic)
 
     # If is a cycle (main chain)
     if 'Cycle' in _classfier.classif:
@@ -413,14 +445,16 @@ def class_chain(chain: Chain):
     # Adds a '-' if first word is a consonant
     # For now only look into unique ids (sets) as its possible to have cycles!
     
-    # For now jumps over if an ether
-    main_prefix = _name_size_pref(len(set(chain.main_path)))
+    if not _is_nitrogenic:
+        qte_prefix = _name_size_pref(len(set(chain.main_path)))
+    else:
+        qte_prefix = AFIXES[_classfier.get_classif(0)]
 
     # Needs to be better understood when to use the hyphen!
     # if not main_prefix[0] in ['a', 'e', 'i', 'o', 'u']:
     #     prefix += '-'
     
-    prefix += main_prefix
+    prefix += qte_prefix
 
     if not prefix:
         return "Chain is too big!"
@@ -438,14 +472,16 @@ def class_chain(chain: Chain):
         old_pos = pos
     
     # TODO: Use connections already stored in chain object?
-    infix = _name_con_type(cons)
+    if not _is_nitrogenic:
+        infix = _name_con_type(cons)
 
-    suffix += _name_suffix(_classfier)
+    suffix += _name_suffix(_classfier, _is_oxygenic)
     
     chain.name = prefix + infix + suffix
     chain.func_name = "NOT IMPLEMENTED!"
     # TODO: Cyclan, Cyclin and whatnot?
+    # I don't like it. I think is best to separete it!
     if REVERSE_STR:
-        chain.functional = _classfier.get_classif(0) + CON_STR + _classfier.get_trad_hclass(plural=True)
+        chain.functional = _classfier.get_trad_classif(0) + CON_STR + _classfier.get_trad_hclass(plural=True)
     else:    
-        chain.functional = _classfier.get_trad_hclass(plural=True) + CON_STR + _classfier.get_classif(0)
+        chain.functional = _classfier.get_trad_hclass(plural=True) + CON_STR + _classfier.get_trad_classif(0)

@@ -1,4 +1,5 @@
 # List of affixes by language
+# TODO: Make it so that the default languague "completes" the other missing part
 ---
 # English
 lang: en
@@ -13,6 +14,7 @@ suffixes:
   Keton: ona
   Ether: e
   Halides: e
+  Nitrogenic: e
 infixes:
   - UNDER
   - an
@@ -21,6 +23,8 @@ infixes:
 afixes:
   Ether: oxi
   Radical: hyl
+  Amine: amin
+  Amide: amid
 heteroatoms:
   halides:
     F: Fluorine
@@ -29,20 +33,25 @@ heteroatoms:
     I: Iodine
   others:
     O: Oxygen
+    N: Nitrogen
 classifcation:
   # Higher classes
+  Nitrogenic: Nitrogenic
+  Nitro: Nitro
   Alcohol: Alcohol
   Ether: Ether
   Keton: Keton
   Ester: Ester
   Hydrocarbon: Hydrocarbon
+  Nitrogenic: Nitrogenic
   # Qualitative classes
   Cycle: Cycle
   Chain: Chain
   Radical: Radical
   # Pure chemical classes
   Aldehyde: Aldehyde
-
+  Amine: Amine
+  Amide: Amide
 ---
 # Portuguese
 lang: pt-br
@@ -58,6 +67,7 @@ suffixes:
     Keton: ona
     Ether: o
     Halides: o
+    Nitrogenic: a
 infixes:
   - UNDER
   - an
@@ -66,6 +76,8 @@ infixes:
 afixes:
   Ether: oxi
   Radical: il
+  Amine: amin
+  Amide: amid
 heteroatoms:
   halides:
     F: Flúor
@@ -74,16 +86,22 @@ heteroatoms:
     I: Iodo
   others:
     O: Oxigênio
+    N: Nitrogênio
 classifcation:
   # Higher classes
+  Nitrogênico: Nitrogênico
+  Nitro: Nitro
   Alcohol: Álcool
   Ether: Éter
   Keton: Cetona
   Ester: Éster
   Hydrocarbon: Hidrocarboneto
+  Nitrogenic: Nitrogênico
   # Qualitative classes
   Cycle: Ciclo
   Chain: Cadeia
   Radical: Radical
   # Pure chemical classes
   Aldehyde: Aldeído
+  Amine: Amina
+  Amide: Amida

@@ -30,7 +30,7 @@ class Pos:
 # - File handling -
 def abrir_arq(nome_arq: str) -> tuple[tuple[str]]:
     # Checks extension
-    _ext = nome_arq.partition('.')[-1].lower()
+    _ext = nome_arq.rpartition('.')[-1].lower()
     if _ext not in EXTS:
         raise TypeError(f'File extension is not valid! Supported extensions:\n{EXTS}')
     # Maybe a default dict with functions?
