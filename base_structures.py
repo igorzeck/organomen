@@ -40,6 +40,7 @@ def abrir_arq(nome_arq: str) -> tuple[tuple[str]]:
         case _:
             raise TypeError(f'\'{_ext}\' is not a supported extension!')
 
+
 def _abrir_arq_field(nome_arq: str) -> tuple[tuple[str]]:
     """
     Handles .field file opening
@@ -98,6 +99,7 @@ def print_field(field: list[list],
     print("")
 
 # -- Constants --
+# TODO: For 3D structure I'll have to do away with all this nonsense
 # Coordinates associated with each connection
 # -4 -3 -2
 # -1  C  1

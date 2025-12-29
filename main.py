@@ -8,17 +8,13 @@
 # of paths, which in turn define how
 # the chain is named
 
-# TODO: Should 'di', 'tri' and whatnot count towards the alphabetical ordering?
 # TODO: Refactor (or add) docstring for functions!!!
-# TODO: make unique hold only unique paths
 # TODO: Organize in different files and make the integration with Chain class better
-# TODO: Naming arguments in a yaml or simmilar to make it possible translations
 # TODO: Shy away from field!!! Using chain representation instead
-# TODO: Make it so that main.chain is ordered from carbon 1 to n (in naming order)
 # TODO: Add config file
 # TODO: Support for functional naming (e.g. for alcohols)
 # TODO: Make rules for hyphens better!
-# TODO: Ver sobre integrar com formato de arquivos como o do https://pubchem.ncbi.nlm.nih.gov/compound/6-Ethyl-3-methylnonane#section=DSSTox-Substance-ID
+# TODO: Integate this file extension: https://pubchem.ncbi.nlm.nih.gov/compound/6-Ethyl-3-methylnonane#section=DSSTox-Substance-ID
 # -- Imports --
 # from base_structures import load_constants
 # load_constants(lang = 'pt-br')  # Load constants based on language
@@ -28,7 +24,7 @@ from classification import class_chain
 from entities import *
 
 def main():
-    chain_path = ".Chains/metoxyetane.field"
+    chain_path = "Local/Chains/triclorinefluorinemethane.field"
 
     # Pathfinding
     c_main = run_chain(chain_path)

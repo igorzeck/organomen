@@ -221,7 +221,11 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
                     radical_types[n_els].append(m_pos)
                 else:
                     radical_types[n_els] = [m_pos]
+
             # Sorts radical_types ids in their names alphabetical order
+            # Note that multiplier prefixes (di, tri, etc.) do not count
+            # towards the alphabetical order (p. 70) 
+
             contender_func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
             # Zips names with their values
             contender_pair_names = list(zip(contender_func_names, radical_types.values()))

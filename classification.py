@@ -12,19 +12,9 @@ from auxiliary import pair_subgs
 
 # TODO: Here might be better to pass pos as list of POS instead of ids
 # TODO: Multifunction procedure might be harder than it appears
-# TODO: Need to be careful with counting! You start counting from one edge onwards!
-# TODO: Treat cycles and ramifications like function
+# TODO: With one atom it shouldn't show position of the radicals 
 
-# -- Naming --
-# - Name prefix -
-# - Constants -
-CON_Q = [
-        '', # Possible for hydrocarbons
-        '',
-        'di',
-        'tri'
-    ]
-# For now infixes are not included
+# -- Classification --
 # - Class -
 # Necessary to find a way to integrate this
 class Classifier:
@@ -217,19 +207,24 @@ class Classifier:
                 return {'Keton':CLASSIFICATION['Keton']}
         return {'Hydrocarbon':CLASSIFICATION['Hydrocarbon']}
 
+# -- Naming --
 # - Function -
 # - Helpers -
 # Get connections infix
-def con_infix(ids: int = [], hide_ids = True, trailing_hyphen = True):
+def mult_prefix(ids: int = [], hide_ids = True, trailing_hyphen = True):
     n = len(ids)
     _trailing = '-' if trailing_hyphen else ''
-    if n < len(CON_Q):
-        if hide_ids or n == 0:
-            return CON_Q[n]
+    _mult_prefix_str = ''
+    if n < len(MULT_PREFS):
+        if (not hide_ids) and (n > 0):
+            _mult_prefix_str = _trailing + ','.join(map(str, ids)) + '-'
+        if n < len(MULT_PREFS):
+            _mult_prefix_str += MULT_PREFS[n]
         else:
-            return _trailing + ','.join(map(str, ids)) + '-'
+            _mult_prefix_str += "NONE"
     else:
-        return 'UNSUPPORTED'
+        _mult_prefix_str = 'UNSUPPORTED'
+    return _mult_prefix_str
 
 # - Main chain naming -
 def _name_size_pref(n_main: int) -> str:
@@ -269,13 +264,67 @@ def _name_con_type(cons: list) -> str:
         infix += INFIXES[1]
     return infix
 
+def __pair_func_pos(gp_halides: dict, classific: Classifier):
+    # For now only count atom in the radical subgroup!
+    # Separate elements into different types
+    # TODO: Generalize bellow logic in a function
+    # radical_types, pair_names = pair_subgs(classific.classif[gp])
+    radical_types: dict = {}
+
+    # Fills radical_types (based on size)
+    for positions in gp_halides:
+        for n_type in positions:
+            # Note that i_subg is also the id for the host of the group!
+            # len - 1 to ignore 'host'
+            n_els = len(classific.subgroups[n_type]) - 1
+            if n_els in radical_types:
+                radical_types[n_els].append(n_type)
+            else:
+                radical_types[n_els] = [n_type]
+    
+    # Sorts radical_types ids in their names alphabetical order
+    # TODO: I think i'm zipping the wrong thing here!!!
+    func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
+    # Zips names with their quantities
+    pair_names = list(zip(func_names, radical_types.keys()))
+    # Orders based on first element (a.k.a its name)
+    pair_names.sort(key=lambda el: el[0])
+    
+    # Note that the multiplier prefixes do not count on the alphabetical order!
+    print("Pares:", pair_names)
+    return radical_types, pair_names
+
+
+def __name_halides(gp_halides: dict, classific: Classifier, hide_ids = False) -> str:
+    halide_str = ''
+    # Name of the halide
+    for n_type in gp_halides:
+        # For now looks into the final element
+        el = classific.subgroups[n_type][-1].el
+        n_str = HALIDES[el].lower()
+    
+        # - Position (of the host) -
+        func_pos = []
+
+        _host = classific.subgroups[n_type][0]
+
+        if hide_ids or len(classific.chain) > 1:
+            func_pos.append(str(classific.chain.get_main_path_id(_host.id)))
+    
+    # - Functional name -            
+    final_str += ','.join(func_pos) + '-' + n_str
+    return halide_str
 
 def _name_radical(classific: Classifier, hide_ids = False) -> str:
     final_str = ''
+    radical_str = ''
+    halides_str = ''
 
-    # TODO: each class in a function and auxiliary functions should be made!
-    
     # - Non hydrocarbon radicals -
+    # Too different the way I'm handling halides and radicals to generalize
+    # gp_halides = (classific.classif[_halides] for _halides in sorted(classific.classif) if _halides in HALIDES)
+    # _halides_pairs = __pair_func_pos(gp_halides, classific)
+    # halides_str = __name_halides(gp_halides, classific, hide_ids)
     # Sorts to make it easy on naming compounding
     for gp in sorted(classific.classif):
         # For now jumps "Radical"
@@ -347,10 +396,10 @@ def _name_radical(classific: Classifier, hide_ids = False) -> str:
             
             # TODO: function for this logic!
             n_str = ''
-            if rt_len < len(CON_Q):
-                n_str += CON_Q[rt_len]
+            if rt_len < len(MULT_PREFS):
+                n_str += MULT_PREFS[rt_len]
 
-            final_str += con_infix(func_pos, hide_ids, trailing_hyphen=(len(final_str) != 0))
+            final_str += mult_prefix(func_pos, hide_ids, trailing_hyphen=(len(final_str) != 0))
             # - Functional name -
             if 'Cycle' in classific.classif:
                 if n_type in classific.classif['Cycle']:
@@ -395,8 +444,8 @@ def _name_radical(classific: Classifier, hide_ids = False) -> str:
             hosts_ids = [_id for _id in [classific.subgroups[_i_subg][0].id for _i_subg in radical_types[n_type]]]
             
             n_str = ''
-            if rt_len < len(CON_Q):
-                n_str += CON_Q[rt_len]
+            if rt_len < len(MULT_PREFS):
+                n_str += MULT_PREFS[rt_len]
             # - Functional name -
             if 'Cycle' in classific.classif:
                 if n_type in classific.classif['Cycle']:
@@ -416,7 +465,7 @@ def _name_suffix(classific: Classifier, hide_ids = False) -> str:
         # Counts position
         _ids = classific.host_by_classif[main_classif]
         _main_ids = list(classific.chain.get_main_path_ids(_ids))
-    final_str += con_infix(_main_ids, hide_ids)
+    final_str += mult_prefix(_main_ids, hide_ids)
     # - Functional suffix -
     final_str += SUFFIXES[classific.get_hclass()]
     return final_str

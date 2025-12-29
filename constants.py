@@ -1,8 +1,32 @@
 import yaml
+from pathlib import Path # Python 3.4+
 
+# -- Class --
+class FallbackDict:
+    """
+    Class of two "Dictionaries", one act as the primary dictionary
+    while the second is the fallback in case the key isn't found on the
+    priamry dictionary 
+    """
+    def __init__(self, primary_dict: dict, fallback_dict: dict):
+        
+        self.primary_dict: dict = primary_dict
+        self.fallback_dict: dict = fallback_dict
+    def __getitem__(self, key):
+        if key in self.primary_dict:
+            return self.primary_dict[key]
+        elif key in self.fallback_dict:
+            return self.fallback_dict[key]
+        else:
+            raise KeyError(f"{key} not in primary or default dict!")
+    def __repr__(self):
+        return self.primary_dict
+    def __str__(self):
+        return self.__repr__()
 # -- Constants --
 # - File related -
 COMMENT_WILDCARD = '#'
+FALLBACK_LANG = 'en'  # Needs to be english, as it's the only complete
 DEFAULT_LANG = 'pt-br'
 EXTS = ['field']
 
@@ -59,6 +83,7 @@ UNRESOLVED = ''
 
 SUFFIXES = {}
 INFIXES = []
+MULT_PREFS = []
 AFIXES = {}
 
 HALIDES = {}
@@ -68,41 +93,69 @@ CLASSIFICATION = {}
 # Failsafe for iterative routines
 MAX_ITER = 21
 
-def load_constants(lang: str = ""):
+def load_constants(lang: str = ''):
     # TODO: get default language from a separete configuration file
     if not lang:
         lang = DEFAULT_LANG
-    # TODO: separete into single files
+
+    res_path = Path('Res')
+    file_path: Path = res_path / (lang + '.yaml')
+    fallback_file_path: Path = res_path / (FALLBACK_LANG + '.yaml')
+
+    # - Checks if language is available -
+    # This triggers one error at a time if both the default and current laguage
+    # Aren't set correctly
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Language '{lang}' not supported! (File '{file_path}' not found!)")
+
+    if not fallback_file_path.is_file():
+        raise FileNotFoundError(f"Fallback language '{FALLBACK_LANG}' not found! (File '{fallback_file_path}' not found!)")
+
     # In case there isn't the info on that language defaults to the english one
     # Constants to be changed
     global REVERSE_STR
     global CON_STR
     global SUFFIXES
     global INFIXES
+    global MULT_PREFS
     global AFIXES
     global HALIDES
     global HETEROATOMS
     global CLASSIFICATION
 
-    # Read YAML resource file
-    res = None
-    with open("Res/conf.yaml", 'r') as f:
-        data = yaml.load_all(f, Loader=yaml.FullLoader)
+    # - Read YAML resource file -
+    # 1. Fallback language
+    fallback_res: dict = None
+    with open(fallback_file_path, 'r') as f:
+        doc = yaml.load(f, Loader=yaml.FullLoader)
 
-        # Somewhat cubersome to access w/ multiple docs, but let it be this way
-        for doc in data:
+        if FALLBACK_LANG == doc['lang']:
+            fallback_res = doc
+    if not fallback_res:
+        raise ValueError(f"File is empty or invalid! ({fallback_file_path})")
+    
+    # 2. Chosen language (only if they are different)
+    if FALLBACK_LANG != lang:
+        res: FallbackDict = None
+        with open(file_path, 'r') as f:
+            doc = yaml.load(f, Loader=yaml.FullLoader)
+
             if lang == doc['lang']:
-                res = doc
-    if not res:
-        raise ValueError("Not a valid language!")
+                res = FallbackDict(primary_dict=doc, fallback_dict=fallback_res)
+        if not res:
+            raise ValueError(f"File is empty or invalid! ({file_path})")
+    else:
+        res = fallback_res
     
     REVERSE_STR = res['reverse_class']
     CON_STR = res['conective_str']
 
     UNRESOLVED = res['unresolved_str']
-    # Merges dictionaries ( Python >= 3.9.0 )
+
+    # Merge of dictionaries ( Python >= 3.9.0 )
     SUFFIXES = res['suffixes'] | {UNRESOLVED:'NONE'}
     INFIXES = res['infixes']
+    MULT_PREFS = res['multiplier_prefixes']
     AFIXES = res['afixes']
 
     HALIDES = res['heteroatoms']['halides']

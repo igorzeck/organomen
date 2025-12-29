@@ -1,0 +1,53 @@
+---
+# Portuguese
+lang: pt-br
+unresolved_str: 'SEM CLASSIFICAÇÃO'
+# TODO: Maybe instead of bianry a list of elements and their order
+reverse_class: True
+conective_str: ' de '
+suffixes:
+    Hydrocarbon: o
+    Alcohol: ol
+    Aldehyde: al
+    Acid: oico
+    Keton: ona
+    Ether: o
+    Halides: o
+    Nitrogenic: a
+infixes:
+  - UNDER
+  - an
+  - en
+  - in
+afixes:
+  Ether: oxi
+  Radical: il
+  Amine: amin
+  Amide: amid
+heteroatoms:
+  halides:
+    F: Flúor
+    CL: Cloro
+    BR: Bromo
+    I: Iodo
+  others:
+    O: Oxigênio
+    N: Nitrogênio
+classifcation:
+  # Higher classes
+  Nitrogênico: Nitrogênico
+  Nitro: Nitro
+  Alcohol: Álcool
+  Ether: Éter
+  Keton: Cetona
+  Ester: Éster
+  Hydrocarbon: Hidrocarboneto
+  Nitrogenic: Nitrogênico
+  # Qualitative classes
+  Cycle: Ciclo
+  Chain: Cadeia
+  Radical: Radical
+  # Pure chemical classes
+  Aldehyde: Aldeído
+  Amine: Amina
+  Amide: Amida

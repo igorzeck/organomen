@@ -1,0 +1,57 @@
+---
+# English
+lang: en
+unresolved_str: 'UNRESOLVED'
+reverse_class: False
+conective_str: ' '
+suffixes:
+  Hydrocarbon: e
+  Alcohol: ol
+  Aldehyde: al
+  Acid: oic
+  Keton: ona
+  Ether: e
+  Halides: e
+  Nitrogenic: e
+infixes:
+  - UNDER
+  - an
+  - en
+  - yn
+multiplier_prefixes:
+  - ""
+  - ""
+  - di
+  - tri
+afixes:
+  Ether: oxi
+  Radical: hyl
+  Amine: amin
+  Amide: amid
+heteroatoms:
+  halides:
+    F: Fluorine
+    CL: Clhorine
+    BR: Bromine
+    I: Iodine
+  others:
+    O: Oxygen
+    N: Nitrogen
+classifcation:
+  # Higher classes
+  Nitrogenic: Nitrogenic
+  Nitro: Nitro
+  Alcohol: Alcohol
+  Ether: Ether
+  Keton: Keton
+  Ester: Ester
+  Hydrocarbon: Hydrocarbon
+  Nitrogenic: Nitrogenic
+  # Qualitative classes
+  Cycle: Cycle
+  Chain: Chain
+  Radical: Radical
+  # Pure chemical classes
+  Aldehyde: Aldehyde
+  Amine: Amine
+  Amide: Amide
