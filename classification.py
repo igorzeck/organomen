@@ -9,6 +9,7 @@ from constants import *
 from pathfinder import scout, _get_host, iterate_subpaths
 from entities import Chain, Entity
 from auxiliary import pair_subgs
+from collections import defaultdict
 
 # TODO: Here might be better to pass pos as list of POS instead of ids
 # TODO: Multifunction procedure might be harder than it appears
@@ -38,6 +39,9 @@ class Classifier:
         self.classif_by_host: dict[int] = {}  # Host: [functions]
 
         self.host_by_classif: dict[str] = {} # Functions: [host]
+
+        # Classificates main chain
+        self._root_question(0)
     
         # Function call
         self._define_subgroups()
@@ -82,7 +86,7 @@ class Classifier:
         for classif in self.classif:
             if id in self.classif[classif]:
                 return classif
-        return 'UNRESOLVED'
+        return 'UNRESOLVED'  # Maybe adding an immutable constant?
 
     def get_trad_classif(self, id: int) -> str:
         for classif in self.classif:
@@ -98,8 +102,8 @@ class Classifier:
         self.subgroups.extend(iterate_subpaths(self.chain, cyclical))
                     
         # ID 0 is the main chain!
-        for subg_id in range(len(self.subgroups) - 1, -1, -1):
-            self._root_question(subg_id) # So ends with main chain classification
+        for subg_id in range(1, len(self.subgroups)):
+            self._root_question(subg_id)
 
         # Resolves main class
         self.hclass = self._resolve_hclass()
@@ -226,12 +230,14 @@ def mult_prefix(ids: int = [], hide_ids = True, trailing_hyphen = True):
         _mult_prefix_str = 'UNSUPPORTED'
     return _mult_prefix_str
 
+get_prefix = lambda n: PREFIXES[n] if n < len(PREFIXES) else UNDEF
+
 # - Main chain naming -
 def _name_size_pref(n_main: int) -> str:
     if n_main <= len(PREFIXES):
         return PREFIXES[n_main]
     else:
-        return 'NONE'
+        return UNDEF
 
 
 def _name_con_type(cons: list) -> str:
@@ -251,7 +257,6 @@ def _name_con_type(cons: list) -> str:
     n3 = len(i3)
 
     # This way 'enin' can occur naturally
-    # TODO: Correct it so it's only between carbon to carbon connections
     if n2 != 0:
         if len(con_qte) >= n2:
             infix += con_qte[n2 - 1]
@@ -264,194 +269,90 @@ def _name_con_type(cons: list) -> str:
         infix += INFIXES[1]
     return infix
 
-def __pair_func_pos(gp_halides: dict, classific: Classifier):
-    # For now only count atom in the radical subgroup!
-    # Separate elements into different types
-    # TODO: Generalize bellow logic in a function
-    # radical_types, pair_names = pair_subgs(classific.classif[gp])
-    radical_types: dict = {}
+def __pair_func_pos(host_ids: int, subgs: list[int], opt_suffix:str =''):
+    """
+    Pair function name and its position on the main path id.
+    
+    :param host_ids: Ids in the main path
+    :type host_ids: int
+    :param subgs: List of subgroups global ids
+    :type subgs: list[int]
+    :param suffix: Optional parameter to add to the function name
+    :type suffix: str
+    """
+    # Pair the main path host ids with their subgroups
+    zip_subg = zip(host_ids, subgs)
+    radical_types = defaultdict(list)  # Defaults to an empty list
 
     # Fills radical_types (based on size)
-    for positions in gp_halides:
-        for n_type in positions:
-            # Note that i_subg is also the id for the host of the group!
-            # len - 1 to ignore 'host'
-            n_els = len(classific.subgroups[n_type]) - 1
-            if n_els in radical_types:
-                radical_types[n_els].append(n_type)
-            else:
-                radical_types[n_els] = [n_type]
+    for _host_id, _subg in zip_subg:
+        # Note that i_subg is also the id for the host of the group!
+        # len - 1 to ignore 'host'
+        n_els = len(_subg) - 1
+        n_type = get_prefix(n_els) + opt_suffix
+        radical_types[n_type].append(_host_id)
     
-    # Sorts radical_types ids in their names alphabetical order
-    # TODO: I think i'm zipping the wrong thing here!!!
-    func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
-    # Zips names with their quantities
-    pair_names = list(zip(func_names, radical_types.keys()))
-    # Orders based on first element (a.k.a its name)
-    pair_names.sort(key=lambda el: el[0])
-    
-    # Note that the multiplier prefixes do not count on the alphabetical order!
-    print("Pares:", pair_names)
-    return radical_types, pair_names
+    # Orders radical_type (type, ids) tuple based on alphabetical order
+    # NOTE: -thyl is the same for every radical, so don't matter on the ordering
+    return dict(sorted(radical_types.items(), key=lambda k: k[0]))
 
 
-def __name_halides(gp_halides: dict, classific: Classifier, hide_ids = False) -> str:
-    halide_str = ''
+def __name_pairs(gp_pairs: dict, hide_ids = False, trailing_first_hyphen = False) -> str:
+    final_str = ''
+    trailing_hyphen = trailing_first_hyphen
     # Name of the halide
-    for n_type in gp_halides:
-        # For now looks into the final element
-        el = classific.subgroups[n_type][-1].el
-        n_str = HALIDES[el].lower()
+    # Note they are already sorted in alphabetical order
+    # and multiplier prefixes don't count towards aplhabetical ordering
+    # Adds to string with multiplier
+    for _gp_name in gp_pairs:
+        _gp_ids = gp_pairs[_gp_name]
+        final_str += mult_prefix(_gp_ids, hide_ids, trailing_hyphen=trailing_hyphen) + _gp_name.lower()
+        trailing_hyphen = True
+    return final_str
     
-        # - Position (of the host) -
-        func_pos = []
 
-        _host = classific.subgroups[n_type][0]
-
-        if hide_ids or len(classific.chain) > 1:
-            func_pos.append(str(classific.chain.get_main_path_id(_host.id)))
-    
-    # - Functional name -            
-    final_str += ','.join(func_pos) + '-' + n_str
-    return halide_str
-
-def _name_radical(classific: Classifier, hide_ids = False) -> str:
+def _name_substitutive(classifier: Classifier, hide_ids = False) -> str:
     final_str = ''
     radical_str = ''
     halides_str = ''
+    ether_str = ''
 
     # - Non hydrocarbon radicals -
-    # Too different the way I'm handling halides and radicals to generalize
-    # gp_halides = (classific.classif[_halides] for _halides in sorted(classific.classif) if _halides in HALIDES)
-    # _halides_pairs = __pair_func_pos(gp_halides, classific)
-    # halides_str = __name_halides(gp_halides, classific, hide_ids)
-    # Sorts to make it easy on naming compounding
-    for gp in sorted(classific.classif):
-        # For now jumps "Radical"
-        if gp == 'Radical':
-            continue
-
-        # If it is a Haladie
-        if gp in HALIDES:
-            # Name of the halide
-            for n_type in classific.classif[gp]:
-                # For now looks into the final element
-                el = classific.subgroups[n_type][-1].el
-                n_str = HALIDES[el].lower()
-                if final_str:
-                    final_str += '-'
-            
-                # - Position (of the host) -
-                func_pos = []
-
-                _host = classific.subgroups[n_type][0]
-                func_pos.append(str(classific.chain.get_main_path_id(_host.id)))
-            
-            # - Functional name -            
-            final_str += ','.join(func_pos) + '-' + n_str
-
-    # - Hydrocarbon radicals -
-    # Apparently always specify the position of the radical!
-    if 'Radical' in classific.classif:
-        # TODO: function for this logic!
-        gp = 'Radical'
-
-        # For now only count atom in the radical subgroup!
-        # Separate elements into different types
-        # TODO: Generalize bellow logic in a function
-        # radical_types, pair_names = pair_subgs(classific.classif[gp])
-        radical_types: dict = {}
-
-        # Fills radical_types (based on size)
-        for n_type in classific.classif[gp]:
-            # Note that i_subg is also the id for the host of the group!
-            # len - 1 to ignore 'host'
-            n_els = len(classific.subgroups[n_type]) - 1
-            if n_els in radical_types:
-                radical_types[n_els].append(n_type)
-            else:
-                radical_types[n_els] = [n_type]
-       
-        # Sorts radical_types ids in their names alphabetical order
-        # TODO: I think i'm zipping the wrong thing here!!!
-        func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
-        # Zips names with their quantities
-        pair_names = list(zip(func_names, radical_types.keys()))
-        # Orders based on first element (a.k.a its name)
-        pair_names.sort(key=lambda el: el[0])
+    # Should they be dictionaries or just tuples?
+    gp_halides = {}
+    gp_radicals = {}
+    for gp in sorted(classifier.classif):
+        _gp_name = ''
+        _gp_host = []
         
-        # Note that the multiplier prefixes do not count on the alphabetical order!
-        print("Pares:", pair_names)
+        for _host in classifier.host_by_classif[gp]:
+            _gp_host.append(classifier.chain.get_main_path_id(_host))
 
-        for r_prefix, n_type in pair_names:
-            # Use radical types to name the prefixes
-            # Position
-            rt_len = len(radical_types[n_type])
+        if gp in HALIDES:
+            _gp_name = HALIDES[gp]
 
-            print(f"Type: {r_prefix} | n: {rt_len}")
-            
-            # The zero index is the 'host'
-            hosts_ids = [_id for _id in [classific.subgroups[_i_subg][0].id for _i_subg in radical_types[n_type]]]
-            func_pos = [str(classific.chain.get_main_path_id(_pos)) for _pos in hosts_ids]
-            
-            # TODO: function for this logic!
-            n_str = ''
-            if rt_len < len(MULT_PREFS):
-                n_str += MULT_PREFS[rt_len]
+            gp_halides[_gp_name] = _gp_host
+        if gp == 'Radical':
+            # Separate into groups
+            subgs = [classifier.subgroups[subg_id] for subg_id in classifier.classif[gp]]
 
-            final_str += mult_prefix(func_pos, hide_ids, trailing_hyphen=(len(final_str) != 0))
-            # - Functional name -
-            if 'Cycle' in classific.classif:
-                if n_type in classific.classif['Cycle']:
-                    final_str += 'cycle'
-            final_str += r_prefix
-            final_str += AFIXES[gp]
+            gp_radicals = __pair_func_pos(_gp_host, subgs, AFIXES[gp])
+        if gp == 'Ether':
+            # Name it directly for now
+            print(classifier.subgroups)
+            print(classifier.classif[gp])
 
-    if 'Ether' in classific.classif:
-        gp = 'Ether'
+            # -2 to avoid counting the oxygen AND the host
+            ether_str += get_prefix(len(classifier.subgroups[-1]) - 2) + AFIXES[gp]
 
-        radical_types: dict = {}
 
-        # Fills radical_types (based on size)
-        for n_type in classific.classif[gp]:
-            # Note that i_subg is also the id for the host of the group!
-            # -2 to ignore 'host' and oxygen
-            n_els = len(classific.subgroups[n_type]) - 2
-            if n_els in radical_types:
-                radical_types[n_els].append(n_type)
-            else:
-                radical_types[n_els] = [n_type]
-       
-        # Sorts radical_types ids in their names alphabetical order
-        func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
-        # Zips names with their values
-        pair_names = list(zip(func_names, radical_types.keys()))
-        # Orders based on first element (a.k.a its name)
-        pair_names.sort(key=lambda el: el[0])
-        # Gets last element (id)
-        # Note that the multiplier prefixes do not count on the alphabetical order!
+    halides_str = __name_pairs(gp_halides, hide_ids=hide_ids)
+    final_str += halides_str
 
-        print("Pares:", pair_names)
+    radical_str = __name_pairs(gp_radicals, hide_ids=hide_ids, trailing_first_hyphen=final_str != '')
+    final_str += radical_str
 
-        for r_prefix, n_type in pair_names:
-            # Use radical types to name the prefixes
-            # Position
-            rt_len = len(radical_types[n_type])
-
-            print(f"Type: {n_type} | n: {rt_len}")
-            
-            # The zero index is the 'host'
-            hosts_ids = [_id for _id in [classific.subgroups[_i_subg][0].id for _i_subg in radical_types[n_type]]]
-            
-            n_str = ''
-            if rt_len < len(MULT_PREFS):
-                n_str += MULT_PREFS[rt_len]
-            # - Functional name -
-            if 'Cycle' in classific.classif:
-                if n_type in classific.classif['Cycle']:
-                    final_str += 'cycle'
-            final_str += r_prefix
-            final_str += AFIXES[gp]
+    final_str += ether_str
 
     return final_str
 
@@ -480,16 +381,19 @@ def class_chain(chain: Chain):
     # TODO: Make it less redundant... Two ways to classify huh???
     # chain.functional = _get_class(chain)
     _classfier = Classifier(chain)
-
+    
+    _is_single_atom = len(chain) == 1
     _is_nitrogenic = _classfier.get_hclass() == 'Nitrogenic'
     _is_oxygenic = _classfier.get_hclass() == 'Ester' or _classfier.get_hclass() == 'Ether'
     
-    prefix = _name_radical(_classfier, hide_ids=_is_nitrogenic)
+    _hide_id = _is_single_atom or _is_nitrogenic
+
+    prefix = _name_substitutive(_classfier, hide_ids=_hide_id)
 
     # If is a cycle (main chain)
     if 'Cycle' in _classfier.classif:
         if 0 in _classfier.classif['Cycle']:
-            prefix += 'cycle'
+            prefix += AFIXES['Cycle']
 
     # Adds a '-' if first word is a consonant
     # For now only look into unique ids (sets) as its possible to have cycles!

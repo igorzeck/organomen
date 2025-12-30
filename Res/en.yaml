@@ -2,6 +2,7 @@
 # English
 lang: en
 unresolved_str: 'UNRESOLVED'
+undefined_str: 'UNDFINED'
 reverse_class: False
 conective_str: ' '
 suffixes:
@@ -24,6 +25,7 @@ multiplier_prefixes:
   - di
   - tri
 afixes:
+  Cycle: cycle
   Ether: oxi
   Radical: hyl
   Amine: amin

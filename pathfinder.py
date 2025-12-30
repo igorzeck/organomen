@@ -433,26 +433,6 @@ def run_path_iterative(chain: Chain):
     return best_path
 
 
-# OBSOLETE
-def get_sub_groups(chain: Chain):
-    # Get substitutive groups
-    to_highlight: Pos = []
-    groups: list[list[Entity]] = []
-    for ent in chain.main_chain:
-        # Iterates through all connections outside main_chain
-        # Wouldn't the code bellow also work for the main_chain directly
-        for con in ent:
-            if con.to_id not in chain.chain_path:
-                # Follows lead
-                groups.append(follow_subpath(chain.chain, chain.chain_path, [], con.dir, con.to_id))
-                print("Captured groups:\n",groups)
-
-        if any([con.to_id not in chain.chain_path for con in ent.cons]):
-            to_highlight.append(chain.id_pool[ent.id])
-    print_field(chain.field, to_highlight, highlight_color_only=True)
-    return groups
-
-
 # TODO: Generalize as the main pathfinder?
 def follow_subpath(chain: list[Entity], main_path: list[int], group: list[Entity], origin_dir: int, curr_id: int, cont: int = 0):
     """

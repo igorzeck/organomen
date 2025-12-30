@@ -24,7 +24,7 @@ from classification import class_chain
 from entities import *
 
 def main():
-    chain_path = "Local/Chains/triclorinefluorinemethane.field"
+    chain_path = ""
 
     # Pathfinding
     c_main = run_chain(chain_path)

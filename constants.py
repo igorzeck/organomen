@@ -80,6 +80,7 @@ PREFIXES = [
 # Maybe use a default dict?
 # NOTE: Atoms are always in all caps for ease of comparison
 UNRESOLVED = ''
+UNDEF = ''
 
 SUFFIXES = {}
 INFIXES = []
@@ -115,6 +116,8 @@ def load_constants(lang: str = ''):
     # Constants to be changed
     global REVERSE_STR
     global CON_STR
+    global UNRESOLVED
+    global UNDEF
     global SUFFIXES
     global INFIXES
     global MULT_PREFS
@@ -151,6 +154,7 @@ def load_constants(lang: str = ''):
     CON_STR = res['conective_str']
 
     UNRESOLVED = res['unresolved_str']
+    UNRESOLVED = res['undefined_str']
 
     # Merge of dictionaries ( Python >= 3.9.0 )
     SUFFIXES = res['suffixes'] | {UNRESOLVED:'NONE'}

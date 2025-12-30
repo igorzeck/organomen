@@ -20,13 +20,14 @@ infixes:
   - en
   - in
 afixes:
+  Cycle: ciclo
   Ether: oxi
   Radical: il
   Amine: amin
   Amide: amid
 heteroatoms:
   halides:
-    F: Flúor
+    F: Fluor  # No accent as it will be part of a compounding word!
     CL: Cloro
     BR: Bromo
     I: Iodo
