@@ -28,7 +28,7 @@ from entities import *
 
 def main():
     # chain_path = "Local/Chains/ácido 3-metilpent-4-enoico.field"
-    chain_path = "Local/Chains/buta-1,3-dieno.field"
+    chain_path = "Local/Chains/naftaleno.field"
 
     # Pathfinding
     c_main = run_chain(chain_path)

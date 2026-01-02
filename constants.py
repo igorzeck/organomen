@@ -170,7 +170,7 @@ def load_constants(lang: str = ''):
         HETEROATOMS |= res['heteroatoms'][htype]
 
     CLASSIFICATION = res['classifcation']
-    SUBCLASSIFICATION = res['subclassification']
+    # SUBCLASSIFICATION = res['subclassification']
 
 # By defautl run
 load_constants()

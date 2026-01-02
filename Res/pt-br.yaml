@@ -27,6 +27,9 @@ afixes:
   Amine: amin
   Amide: amid
   Acid: 'Ácido '
+  Benzene: benz
+  Naftalene: nafta
+  Antracene: antra
 heteroatoms:
   halides:
     F: Fluor  # No accent as it will be part of a compounding word!
@@ -47,6 +50,7 @@ classifcation:
   Hydrocarbon: Hidrocarboneto
   Nitrogenic: Nitrogênico
   Carbonic Acid: Ácido Carbônico
+  Aromatic: Aromatico
   # Qualitative classes
   Cycle: Ciclo
   Chain: Cadeia
@@ -55,6 +59,13 @@ classifcation:
   Aldehyde: Aldeído
   Amine: Amina
   Amide: Amida
-subclassification:
-  Hydrocarbon:
-    prefix: Alc
+  Benzene: Benzeno
+# subclassification:
+#   Hydrocarbon:
+#     prefix: Alc
+#   Aromatic:
+#     prefix: 
+#       - Benz
+#       - Nafta
+#       - Antra
+#     suffix: eno

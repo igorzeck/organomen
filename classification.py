@@ -31,6 +31,8 @@ class Classifier:
         # Fenol would be an Alcohol and etc.
         self._hclass = {}
         self.subfunction = {}
+        # NOTE: Cyclic only for the main chain
+        self.main_cyclical: bool = False
 
         # First subgroup is main chain itself
         self.subgroups: list[tuple[Entity]] = [tuple(chain.main_chain)]
@@ -61,9 +63,9 @@ class Classifier:
         print("Classifications:", self.classif)
 
         # Define subfunctions (alkane, alkadiene, ...)
-        # Note it depends on the higher classification
-        self.subfunction = self._resolve_subfunction()
-        print("(CLASSIFIER)Subfunction:", self.subfunction)
+        # NOTE: it depends on the higher classification
+        # self.subfunction = self._resolve_subfunction()
+        # print("(CLASSIFIER)Subfunction:", self.subfunction)
     
     def _insert_classif(self, _class: str, subg_id: int = -1):
         if subg_id < 0:
@@ -123,6 +125,7 @@ class Classifier:
     
     def get_main_insat(self):
         return [insat for insat in self.insaturations if insat.from_id in self.chain.main_path]
+    
     # - Chemical logic -
     def _define_subgroups(self):
         # TODO: Cleanup
@@ -151,7 +154,9 @@ class Classifier:
         # 0. Is it a cycle?
         if (self.subgroups[subg_id][0] == self.subgroups[subg_id][-1]) and\
             (len(self.subgroups[subg_id]) > 1):
-            self._insert_classif('Cycle', subg_id)
+            self.main_cyclical = True
+            # Tries to see if it's a special cycle
+            self._insert_classif(self._resolve_cycle( self.subgroups[subg_id]), subg_id)
         # 1. Has an hteroatom?
         if any([ent.is_hetero() for ent in self.subgroups[subg_id]]):
             # print(f"{self.subgroups[subg_id]} has an heteroatom!")
@@ -224,6 +229,18 @@ class Classifier:
                         self._insert_classif(ent.el, subg_id)
 
     # - Main chain -
+    def _resolve_cycle(self, subg: list[Entity]):
+        # TODO: Should classificate by number of benzenes!
+        #       Maybe a function to find and count them?
+        _classif = 'Cycle'
+        n2 = 0
+        for el in subg[1:]:
+            if el.cons.count(2) == 1:
+                n2 += 1
+        if n2 / 2 == 3:  # Double counting!
+            _classif = 'Benzene'
+        return _classif
+
     def _collapse_classif(self):
         # Carbonic Acid
         for host_id, cbh in self.classif_by_host.items():
@@ -249,13 +266,14 @@ class Classifier:
         for _host in self.classif_by_host:
             _host_classif = self.classif_by_host[_host]
             # TODO: Add "Amide"
+            # I think a match would be better...
             is_acid = 'Carbonic Acid' in _host_classif
             is_amine = 'Amine' in _host_classif
             is_amide = 'Amide' in _host_classif
             has_alcohol = 'Alcohol' in _host_classif
             has_ether = 'Ether' in _host_classif
             has_keton = 'Keton' in _host_classif
-
+            
             if is_acid:
                 return{'Carbonic Acid':CLASSIFICATION['Carbonic Acid']}
             if is_amine or is_amide:
@@ -271,31 +289,37 @@ class Classifier:
         return {'Hydrocarbon':CLASSIFICATION['Hydrocarbon']}
 
     # Maybe specify on a conf file how they should be decided?
-    def _resolve_subfunction(self) -> dict:
-        subfunc_prefix = ''
-        subfunc_infix = ''
-        subfunc_suffix = ''
-        subfunc = SUBCLASSIFICATION[self.get_hclass()]
+    # def _resolve_subfunction(self) -> dict:
+    #     subfunc_prefix = ''
+    #     subfunc_infix = ''
+    #     subfunc_suffix = ''
+    #     subfunc = SUBCLASSIFICATION[self.get_hclass()]
 
-        if self.get_hclass() in SUBCLASSIFICATION:
-            subfunc_prefix = subfunc['prefix']
-        else:
-            subfunc_prefix = UNRESOLVED
+    #     if self.get_hclass() in SUBCLASSIFICATION:
+    #         # For now reads the first if a list
+    #         if isinstance(subfunc, list):
+    #             subfunc_prefix = subfunc['prefix'][0]
+    #         else:
+    #             subfunc_prefix = subfunc['prefix']
+    #     else:
+    #         subfunc_prefix = UNRESOLVED
         
-        match self.get_hclass():
-            case 'Hydrocarbon':
-                subfunc_infix = _name_con_type(self.insaturations, self.chain.get_main_path_id, show_ids=False)
+    #     match self.get_hclass():
+    #         case 'Hydrocarbon':
+    #             subfunc_infix = _name_con_type(self.insaturations, self.chain.get_main_path_id, show_ids=False)
         
-        subfunc_suffix = SUFFIXES[self.get_hclass()]
-        final_str = subfunc_prefix + subfunc_infix + subfunc_suffix
-        return final_str
+    #     subfunc_suffix = SUFFIXES[self.get_hclass()]
+    #     final_str = subfunc_prefix + subfunc_infix + subfunc_suffix
+    #     return final_str
             
 
 # -- Naming --
 # - Function -
 # - Helpers -
 # Get connections infix
-def mult_prefix(ids: list[int] = [], show_ids = False, trailing_hyphen = True):
+def mult_prefix(ids: list[int] = [],
+                show_ids = False,
+                trailing_hyphen = True):
     n = len(ids)
     _trailing = '-' if trailing_hyphen else ''
     
@@ -320,7 +344,10 @@ def _name_size_pref(n_main: int) -> str:
         return UNDEF
 
 
-def _name_con_type(cons: list[Connection], on_main: Chain.get_main_path_id, show_ids: bool = True) -> str:
+def _name_con_type(cons: list[Connection],
+                   on_main: Chain.get_main_path_id,
+                   show_ids: bool = True,
+                   hide_mult: bool = False) -> str:
     """
     Name connection type (an, en, in, etc.) using the id from the main_path of the chain
     
@@ -330,6 +357,8 @@ def _name_con_type(cons: list[Connection], on_main: Chain.get_main_path_id, show
     :type on_main: Chain.get_main_path_id
     :param show_ids: Flag to decide if main path ids are shown or not (default is True) - only valid for main path
     :type show_ids: bool
+    :param hide_mult: Flag to decide if main path multiplier prefixes are shown
+    :type hide_mult: bool
     :return: Infix string
     :rtype: str
     """
@@ -365,7 +394,8 @@ def _name_con_type(cons: list[Connection], on_main: Chain.get_main_path_id, show
         # Adds ids
         # A little bit unoptmized tbh, but leaner
         cons_from = [con_from for con_from in cons_dict[type]]
-        infix += mult_prefix(cons_from, show_ids = show_ids)
+        if not hide_mult:
+            infix += mult_prefix(cons_from, show_ids = show_ids)
     # Addition of type name
     for type in cons_dict:
         if type < len(INFIXES) - 1:
@@ -462,7 +492,7 @@ def _name_substitutive(classifier: Classifier, hide_ids = False) -> str:
     return final_str
 
 
-def _name_suffix(classific: Classifier, hide_ids = False) -> str:
+def _name_suffix(classific: Classifier, hide_ids = False, hide_mult = False) -> str:
     final_str = ''
     main_classif = classific.get_hclass()
     # - Functional positions (ids) -
@@ -487,53 +517,58 @@ def class_chain(chain: Chain):
     # chain.functional = _get_class(chain)
     _classfier = Classifier(chain)
     
-    _is_single_atom = len(chain) == 1
+    _is_cyclic = _classfier.main_cyclical
+    _is_aromatic = 'Benzene' in _classfier.classif  # For now only this!
+    _is_single_atom = len(chain.main_chain) == 1
     _is_nitrogenic = _classfier.get_hclass() == 'Nitrogenic'  # TODO: rename it, as it's now, it includes Nitros!
     _is_oxygenic = _classfier.get_hclass() == 'Ester' or _classfier.get_hclass() == 'Ether'
     # Strictly speaking, if it can only occur at end of the chain it shoukd be numbered!
     # TODO: Make it now if should be numbered another way!
     _is_acid = _classfier.get_hclass() == 'Carbonic Acid'
 
-    _hide_id = _is_single_atom or _is_nitrogenic
+    # TODO: Reafctor to or HIDE or SHOW
+    _hide_prefix_id = _is_single_atom
+    _infixed = not _is_nitrogenic
+    _show_infix_id = not _is_aromatic
+    _hide_suffix_id = _is_oxygenic or _is_acid or _is_aromatic
+    _hide_mult = _is_aromatic
+    _is_afixed = _is_cyclic or _is_nitrogenic
 
-    prefix = _name_substitutive(_classfier, hide_ids=_hide_id)
+    prefix = _name_substitutive(_classfier, hide_ids=_hide_prefix_id)
 
     # If is a cycle (main chain)
-    if 'Cycle' in _classfier.classif:
-        if 0 in _classfier.classif['Cycle']:
-            prefix += AFIXES['Cycle']
-
-    # Adds a '-' if first word is a consonant
-    # For now only look into unique ids (sets) as its possible to have cycles!
-    
-    if not _is_nitrogenic:
-        prefix += _name_size_pref(len(set(chain.main_path)))
-    else:
+    # Maybe add null values for afixes of other classes
+    # Afixables
+    if _is_afixed:
         prefix += AFIXES[_classfier.get_classif(0)]
+    else:
+        prefix += _name_size_pref(len(set(chain.main_path)))
 
-    # TODO: better understand when to use the hyphen!
+        # TODO: better understand when to use the hyphen!
 
-    if not prefix:
-        return "Chain is too big!"
+        if not prefix:
+            return "Chain is too big!"
 
-    # Makes chain
-    cons = []
-    # This could be strealined to use connection class!
-    old_pos = None
-    for pos in [chain.id_pool[id] for id in chain.main_path]:
-        if old_pos:
-            # This would be perfect in a function!
-            dif_pos = pos - old_pos
-            norm_dif = dif_pos/2
-            con_pos = old_pos + norm_dif
-            cons.append(chain.field[con_pos.row][con_pos.col])
-        old_pos = pos
+        # Makes chain
+        cons = []
+        # This could be strealined to use connection class!
+        old_pos = None
+        for pos in [chain.id_pool[id] for id in chain.main_path]:
+            if old_pos:
+                # This would be perfect in a function!
+                dif_pos = pos - old_pos
+                norm_dif = dif_pos/2
+                con_pos = old_pos + norm_dif
+                cons.append(chain.field[con_pos.row][con_pos.col])
+            old_pos = pos
     
-    # TODO: Use connections already stored in chain object?
-    if not _is_nitrogenic:
-        infix = _name_con_type(_classfier.get_main_insat(), _classfier.chain.get_main_path_id)
+    if _infixed:
+        infix = _name_con_type(_classfier.get_main_insat(),
+                               _classfier.chain.get_main_path_id,
+                               show_ids=_show_infix_id,
+                               hide_mult=_hide_mult)
 
-    suffix += _name_suffix(_classfier, _is_oxygenic or _is_acid)
+    suffix += _name_suffix(_classfier, hide_ids=_hide_suffix_id, hide_mult=_hide_mult)
     
     chain.name = prefix + infix + suffix
 

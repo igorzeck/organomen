@@ -32,6 +32,9 @@ afixes:
   Amine: amin
   Amide: amid
   Acid: ' Acid'
+  Benzene: benz
+  Naftalene: nafta
+  Antracene: antra
 heteroatoms:
   halides:
     F: Fluorine
@@ -42,7 +45,7 @@ heteroatoms:
     O: Oxygen
     N: Nitrogen
 classifcation:
-  # Higher classes
+  # - Higher classes -
   Nitrogenic: Nitrogenic
   Nitro: Nitro
   Alcohol: Alcohol
@@ -52,14 +55,22 @@ classifcation:
   Hydrocarbon: Hydrocarbon
   Nitrogenic: Nitrogenic
   Carbonic Acid: Carbonic Acid
-  # Qualitative classes
+  # - Qualitative classes -
   Cycle: Cycle
   Chain: Chain
   Radical: Radical
-  # Pure chemical classes
+  # - Pure chemical classes -
   Aldehyde: Aldehyde
   Amine: Amine
   Amide: Amide
-subclassification:
-  Hydrocarbon:
-    prefix: Alk
+  # Aromatics
+  Benzene: Benzene
+# subclassification:
+#   Hydrocarbon:
+#     prefix: Alk
+#   Aromatic:
+#     prefix: 
+#       - Benz
+#       - Nafta
+#       - Antra
+#     suffix: ene  # Add more!
