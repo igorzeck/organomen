@@ -339,11 +339,24 @@ class Chain:
     def get_main_path_size(self):
         return len(self.main_path)
     
-    def to_el(self, id: int, el: str = '') -> int:
+    def to_el(self, id: int, el: str = '', filter= lambda e: True) -> int:
+        """
+        Docstring for to_el
+        
+        :param self: Chain object
+        :param id: Id of the atom to 'look around'
+        :type id: int
+        :param el: Element string to restrict to
+        :type el: str
+        :param filter: Filter function applied to each Connection
+        :type el: function
+        :return: Quantity of connections that satisfied the el str and filter function
+        :rtype: int
+        """
         if el:
-            return sum([self.chain[con.to_id].el == el for con in self.chain[id].cons])
+            return sum([self.chain[con.to_id].el == el for con in self.chain[id].cons if filter(con)])
         else:
-            return len(self.chain[id].cons)
+            return len([con for con in self.chain[id].cons if filter(con)])
     
     def _add_element(self, el: Entity):
         el_str = el.el

@@ -8,6 +8,7 @@
 # of paths, which in turn define how
 # the chain is named
 
+# TODO: the current way I'm flaggin main chain don't support single "bridges" between cycles!
 # TODO: Function that makes ordering of electrons orbital using octate rule so that I can have connection numbers per element!
 # TODO: Flag type of amine and type of alcohol
 # TODO: Add configuration file with element info, including maximum conenctions!
@@ -28,7 +29,7 @@ from entities import *
 
 def main():
     # chain_path = "Local/Chains/ácido 3-metilpent-4-enoico.field"
-    chain_path = "Local/Chains/naftaleno.field"
+    chain_path = "Local/Chains/antracene.field"
 
     # Pathfinding
     c_main = run_chain(chain_path)

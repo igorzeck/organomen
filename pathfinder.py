@@ -163,8 +163,8 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
             contender_insat += 1
         # 3. Closest group (careful with cyclical logic)
         # Looks to more than 3 connections to carbons
-        # Note that any group should flag this, not onlu substitutive groups
-        if len(curr_el) > 2:
+        # Note that any group should flag this, not only substitutive groups
+        if chain.to_el(curr_el.id, filter=lambda con: chain.get_main_path_id(con.to_id) > 0):
             contender_group.append(contender.index(id))
 
     if len(best) > 1:
@@ -180,7 +180,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
             best_insat += 1
         # 3. Closest group
-        if len(curr_el) > 2:
+        if chain.to_el(curr_el.id, filter=lambda con: chain.get_main_path_id(con.to_id) > 0):
             best_group.append(best.index(id))
     
     # - Comparisons -
@@ -293,78 +293,78 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
 
 # TODO: Make it follows all rules for defining main chain!
 # TODO: Make it not start from a heteroatom
-def run_path_recursive(chain: Chain,
-             start_pos_id: int,
-             path_stub: list,
-             best_stub: list,
-             origin_dir = 0,
-             recur = 0):
-    """
-    Go through the 2D representation of a carbon chain
-    path
-    recur: Current recursion
-    origin_dir: Previous mirror direction to avoid backtracking
-    """
-    # Start position of this recursion
-    pos_id = start_pos_id
+# def run_path_recursive(chain: Chain,
+#              start_pos_id: int,
+#              path_stub: list,
+#              best_stub: list,
+#              origin_dir = 0,
+#              recur = 0):
+#     """
+#     Go through the 2D representation of a carbon chain
+#     path
+#     recur: Current recursion
+#     origin_dir: Previous mirror direction to avoid backtracking
+#     """
+#     # Start position of this recursion
+#     pos_id = start_pos_id
     
-    # Temporary as it doesn't work with recursion!
-    while True:
-        print_field(chain.field, [chain.id_pool[pos_id]])
-        nxt_els = chain.chain[pos_id]
-        nxt_n_con = len(nxt_els.cons)
-        # Cycle detection
-        if pos_id in path_stub:
-            # It will have repeated position
-            # But it will make it easier to glance at
-            # Cyclic behaviour!
-            path_stub.append(pos_id)
-            return path_stub
-        path_stub.append(pos_id)
+#     # Temporary as it doesn't work with recursion!
+#     while True:
+#         print_field(chain.field, [chain.id_pool[pos_id]])
+#         nxt_els = chain.chain[pos_id]
+#         nxt_n_con = len(nxt_els.cons)
+#         # Cycle detection
+#         if pos_id in path_stub:
+#             # It will have repeated position
+#             # But it will make it easier to glance at
+#             # Cyclic behaviour!
+#             path_stub.append(pos_id)
+#             return path_stub
+#         path_stub.append(pos_id)
 
-        # Lone heteroatom detection
-        # Kinda hacky tbh
-        pos = chain.id_pool[pos_id]
-        el = chain.field[pos.row][pos.col]
-        if el != 'C':
-            if len(scout(chain.field, chain.id_pool,pos_id)) == 1:
-                return []
+#         # Lone heteroatom detection
+#         # Kinda hacky tbh
+#         pos = chain.id_pool[pos_id]
+#         el = chain.field[pos.row][pos.col]
+#         if el != 'C':
+#             if len(scout(chain.field, chain.id_pool,pos_id)) == 1:
+#                 return []
 
-        # if (nxt_n_con == 2 and pos_id not in chain.edges) or pos_id == start_pos_id:
-        if (nxt_n_con <= 2):
-            # If it has one possible path, move
-            jump = False
-            for _con in nxt_els:
-                nxt_dir = _con.dir
-                nxt_el_pos_id = _con.to_id
-                if nxt_dir != origin_dir:
-                    origin_dir = -nxt_dir
-                    pos_id = nxt_el_pos_id
-                    jump = True
-                    break
-            if jump:
-                continue
-        if nxt_n_con > 2 and pos_id not in chain.edges:
-            # Recursion for multiple paths
-            for _con in nxt_els:
-                nxt_dir = _con.dir
-                nxt_el_pos_id = _con.to_id
-                if nxt_dir != origin_dir:
-                    print(f"({recur + 1}) Going (Dir: {nxt_dir}, ID: {nxt_el_pos_id})")
-                    temp_stub = run_path_recursive(chain, nxt_el_pos_id, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub)
-                    if _is_higher(best_stub, temp_stub, chain.chain):
-                        best_stub = temp_stub
-                    print_field(chain.field, [chain.id_pool[id] for id in path_stub])
+#         # if (nxt_n_con == 2 and pos_id not in chain.edges) or pos_id == start_pos_id:
+#         if (nxt_n_con <= 2):
+#             # If it has one possible path, move
+#             jump = False
+#             for _con in nxt_els:
+#                 nxt_dir = _con.dir
+#                 nxt_el_pos_id = _con.to_id
+#                 if nxt_dir != origin_dir:
+#                     origin_dir = -nxt_dir
+#                     pos_id = nxt_el_pos_id
+#                     jump = True
+#                     break
+#             if jump:
+#                 continue
+#         if nxt_n_con > 2 and pos_id not in chain.edges:
+#             # Recursion for multiple paths
+#             for _con in nxt_els:
+#                 nxt_dir = _con.dir
+#                 nxt_el_pos_id = _con.to_id
+#                 if nxt_dir != origin_dir:
+#                     print(f"({recur + 1}) Going (Dir: {nxt_dir}, ID: {nxt_el_pos_id})")
+#                     temp_stub = run_path_recursive(chain, nxt_el_pos_id, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub)
+#                     if _is_higher(best_stub, temp_stub, chain.chain):
+#                         best_stub = temp_stub
+#                     print_field(chain.field, [chain.id_pool[id] for id in path_stub])
 
-            break
-        if pos_id in chain.edges:
-            print(f"({recur}) Done")
-            if _is_higher(best_stub, path_stub, chain.chain):
-                best_stub = path_stub
-                chain.main_path = best_stub
-            print_field(chain.field, [chain.id_pool[id] for id in path_stub])
-            break
-    return best_stub
+#             break
+#         if pos_id in chain.edges:
+#             print(f"({recur}) Done")
+#             if _is_higher(best_stub, path_stub, chain.chain):
+#                 best_stub = path_stub
+#                 chain.main_path = best_stub
+#             print_field(chain.field, [chain.id_pool[id] for id in path_stub])
+#             break
+#     return best_stub
 
 
 # TODO: Oxygen should go to main chain except if on edge! (So does Nitrogen)

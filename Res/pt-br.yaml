@@ -28,8 +28,8 @@ afixes:
   Amide: amid
   Acid: 'Ácido '
   Benzene: benz
-  Naftalene: nafta
-  Antracene: antra
+  Naftalene: naftal
+  Antracene: antrac
 heteroatoms:
   halides:
     F: Fluor  # No accent as it will be part of a compounding word!
@@ -60,6 +60,8 @@ classifcation:
   Amine: Amina
   Amide: Amida
   Benzene: Benzeno
+  Naftalene: Naftaleno
+  Antracene: Antraceno
 # subclassification:
 #   Hydrocarbon:
 #     prefix: Alc

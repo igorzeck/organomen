@@ -237,8 +237,13 @@ class Classifier:
         for el in subg[1:]:
             if el.cons.count(2) == 1:
                 n2 += 1
-        if n2 / 2 == 3:  # Double counting!
+        n2 /= 2 # Double counting
+        if n2 == 3:
             _classif = 'Benzene'
+        if n2 == 5:
+            _classif = 'Naftalene'
+        if n2 == 7:
+            _classif = 'Antracene'
         return _classif
 
     def _collapse_classif(self):
@@ -518,7 +523,10 @@ def class_chain(chain: Chain):
     _classfier = Classifier(chain)
     
     _is_cyclic = _classfier.main_cyclical
-    _is_aromatic = 'Benzene' in _classfier.classif  # For now only this!
+    # Very mechanical! Sucks a lot! TODO: Fix it!
+    _is_aromatic = ('Benzene' in _classfier.classif) or\
+          ('Naftalene' in _classfier.classif) or\
+          ('Antracene' in _classfier.classif)
     _is_single_atom = len(chain.main_chain) == 1
     _is_nitrogenic = _classfier.get_hclass() == 'Nitrogenic'  # TODO: rename it, as it's now, it includes Nitros!
     _is_oxygenic = _classfier.get_hclass() == 'Ester' or _classfier.get_hclass() == 'Ether'
