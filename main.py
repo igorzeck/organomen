@@ -8,6 +8,9 @@
 # of paths, which in turn define how
 # the chain is named
 
+# TODO: Function that makes ordering of electrons orbital using octate rule so that I can have connection numbers per element!
+# TODO: Flag type of amine and type of alcohol
+# TODO: Add configuration file with element info, including maximum conenctions!
 # TODO: Refactor (or add) docstring for functions!!!
 # TODO: Organize in different files and make the integration with Chain class better
 # TODO: Shy away from field!!! Using chain representation instead
@@ -24,7 +27,8 @@ from classification import class_chain
 from entities import *
 
 def main():
-    chain_path = ""
+    # chain_path = "Local/Chains/ácido 3-metilpent-4-enoico.field"
+    chain_path = "Local/Chains/buta-1,3-dieno.field"
 
     # Pathfinding
     c_main = run_chain(chain_path)

@@ -2,7 +2,7 @@
 # English
 lang: en
 unresolved_str: 'UNRESOLVED'
-undefined_str: 'UNDFINED'
+undefined_str: 'UNDEFINED'
 reverse_class: False
 conective_str: ' '
 suffixes:
@@ -14,6 +14,7 @@ suffixes:
   Ether: e
   Halides: e
   Nitrogenic: e
+  Carbonic Acid: oic
 infixes:
   - UNDER
   - an
@@ -30,6 +31,7 @@ afixes:
   Radical: hyl
   Amine: amin
   Amide: amid
+  Acid: ' Acid'
 heteroatoms:
   halides:
     F: Fluorine
@@ -49,6 +51,7 @@ classifcation:
   Ester: Ester
   Hydrocarbon: Hydrocarbon
   Nitrogenic: Nitrogenic
+  Carbonic Acid: Carbonic Acid
   # Qualitative classes
   Cycle: Cycle
   Chain: Chain
@@ -57,3 +60,6 @@ classifcation:
   Aldehyde: Aldehyde
   Amine: Amine
   Amide: Amide
+subclassification:
+  Hydrocarbon:
+    prefix: Alk

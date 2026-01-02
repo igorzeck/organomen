@@ -80,7 +80,7 @@ def print_field(field: list[list],
             if el == '0':
                 p_el = zeros_repr.ljust(3)
             elif curr_pos in highlights:
-                el = el if not show_ids else str(highlights.index(curr_pos))
+                el = el if not show_ids else str(highlights.index(curr_pos) + 1)
                 if not highlight_color_only:
                     if len(highlights) > 1:
                         if curr_pos == highlights[0] == highlights[-1]:

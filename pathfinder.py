@@ -97,6 +97,13 @@ def run_subpath(chain: Chain, ent: Entity):
         if failsafe > 100:
             raise IndexError("Too big of a chain: Too big subapath, malformed chain!")
 
+def has_hetero(main_ents: Entity | list[Entity] | tuple[Entity]) -> bool:
+    if isinstance(main_ents, Entity):
+        return main_ents.is_hetero()
+    elif isinstance(main_ents, list | tuple):
+        return any([ent.is_hetero() for ent in main_ents])
+    else:
+        return False
 
 # TODO: For same size subpaths, the ones with the most ramifications should be the main one
 # TODO: The lower position number should fallback to alphabetical order when equivalent positions
@@ -110,6 +117,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
 
     """
     # TODO: order this to check on proper order
+    # Should start counting from the closest to the functional group (trumping radicals)!
     # - Checks for empty values -
     if not contender:
         return False
@@ -198,10 +206,11 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         if len(contender_group) > len(best_group):
             # Contender has more groups 
             return True
+        # 4.2. Sees nature of groups and follow alphabetical order
         elif len(contender_group) == len(best_group):
-            # Should minimize only closest (one iteration!)
-            # 4.2. Sees which one better follows alphabetical order
-            # 4.2.1. Find subgroups for each one and orders it
+            # Ordering pair function
+            ordering_func = lambda el: (el[1], el[0])
+            
             contender_mock_chain = chain
             # For now changes real object (not recomended!!!)
             # Though, appears to be a copy...?
@@ -217,10 +226,11 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
                 n_els = len(subg) - 1
                 # Appends the position on the main chain
                 m_pos = contender_mock_chain.get_main_path_id(subg[0])
+                hetero_subg = has_hetero(subg)
                 if n_els in radical_types:
-                    radical_types[n_els].append(m_pos)
+                    radical_types[n_els].append((m_pos, hetero_subg))
                 else:
-                    radical_types[n_els] = [m_pos]
+                    radical_types[n_els] = [(m_pos, hetero_subg)]
 
             # Sorts radical_types ids in their names alphabetical order
             # Note that multiplier prefixes (di, tri, etc.) do not count
@@ -229,8 +239,10 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
             contender_func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
             # Zips names with their values
             contender_pair_names = list(zip(contender_func_names, radical_types.values()))
-            # Orders based on first element (a.k.a its name)
-            contender_pair_names.sort(key=lambda el: el[0])
+            # Ordering:
+            #   1. Based on if it's an heteroatom or not
+            #   2. Based on first element (a.k.a its name)
+            contender_pair_names.sort(key=ordering_func)
 
             best_mock_chain = chain
             # Techically is a copy!
@@ -247,23 +259,25 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
                 n_els = len(subg) - 1
                 # Appends the position on the main chain
                 m_pos = best_mock_chain.get_main_path_id(subg[0])
+                hetero_subg = has_hetero(subg)
                 if n_els in radical_types:
-                    radical_types[n_els].append(m_pos)
+                    radical_types[n_els].append((m_pos, hetero_subg))
                 else:
-                    radical_types[n_els] = [m_pos]
+                    radical_types[n_els] = [(m_pos, hetero_subg)]
             # Sorts radical_types ids in their names alphabetical order
             best_func_names = list(map(lambda k: PREFIXES[k] if k < len(PREFIXES) else f"UNDEF_LEN[{k}]", radical_types.keys()))
             # Zips names with their values
             best_pair_names = list(zip(best_func_names, radical_types.values()))
             # Orders based on first element (a.k.a its name)
-            best_pair_names.sort(key=lambda el: el[0])
-                
-            # 4.2.2. Sees which one has the closes group to the start of the path
+            best_pair_names.sort(key=ordering_func)
+            # 4.2.1. Sees which one has the closest group to the start of the path
+            #        (Or the one with most functional groups)
             contender_first_pair = contender_pair_names[0]
             best_first_pair = best_pair_names[0]
             # TODO: I need to know If a priorize longer radicals
-            # Compares their main chain position
-            if contender_first_pair[1][0] < best_first_pair[1][0]:
+            # 4.2.2. COmpares which one has the most heteroatoms
+            # 4.2.3. Compares their main chain position for their "best" sorted elements
+            if contender_first_pair[1][0][0] < best_first_pair[1][0][0]:
                 return True
         else:
             # Current best has more groups

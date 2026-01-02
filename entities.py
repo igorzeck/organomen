@@ -25,6 +25,18 @@ class Connection:
         elif isinstance(value, int):
             # Checks type of connection
             return self.type == value
+    def __lt__(self, value):
+        if isinstance(value, int):
+            return self.type < value
+    def __gt__(self, value):
+        if isinstance(value, int):
+            return self.type > value
+    def __le__(self, value):
+        if isinstance(value, int):
+            return self.type <= value
+    def __ge__(self, value):
+        if isinstance(value, int):
+            return self.type >= value
     def __str__(self):
         return f'(From: {self.from_id}, To: {self.to_id}, Dir: {self.dir}, Type: {self.type})'
     def __repr__(self):
@@ -308,14 +320,20 @@ class Chain:
         cchain = Chain()
         # TODO: Complete this
         return cchain
+    
     # - Chemistry related -
     def get_main_path_id(self, path_id: int):
         if path_id in self.main_path:
             return self.main_path.index(path_id) + 1
+        else:
+            return -1
 
     def get_main_path_ids(self, path_ids: list[int]):
         for id in path_ids:
-            yield self.get_main_path_id(id)
+            if id in self.main_path:
+                yield self.get_main_path_id(id)
+            else:
+                yield -1
 
     # - Element-wise -
     def get_main_path_size(self):
@@ -337,7 +355,7 @@ class Chain:
 
         # Hydrogen bonds (if any)
         self.elements['H'] += 4 - len(el.cons)
-    
+
     # - Visual -
     def print_ids(self):
         mock_field = [[0 for _ in range(self.n_col)] for __ in range(self.n_row)]

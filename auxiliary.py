@@ -63,7 +63,3 @@ def scout(field, pos_pool: tuple[Pos], pos_id: int, nxt_id = True, nxt_dir = Fal
                     _package.append(field[nxt_pos.row][nxt_pos.col])
                 nxt_el_l.append(_package)
     return nxt_el_l
-
-
-def pair_subgs(subgroups):
-    pass
