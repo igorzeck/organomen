@@ -179,8 +179,8 @@ class Classifier:
             for ent in self.subgroups[subg_id]:
                 if ent == 'N':
                     if len(self.subgroups[subg_id]) > 1:  # If not only one single nitrogen
-                        if (self.chain.to_el(ent.id,'O') == 2) and\
-                                (self.chain.to_el(ent.id,'C') == 1):
+                        if (self.chain.to_els(ent.id,'O') == 2) and\
+                                (self.chain.to_els(ent.id,'C') == 1):
                             self._insert_classif('Nitro', subg_id)
                         else:
                             self._insert_classif('Radical', subg_id)
@@ -200,7 +200,7 @@ class Classifier:
                 if ent != _host:
                     if any([((con.type == SIMPLE))\
                             for con in ent.cons]) and\
-                            self.chain.to_el(ent.id,'C') == 1:
+                            self.chain.to_els(ent.id,'C') == 1:
                         # print('Is an alcohol!')
                         # self.classif[subg_id] = [_host.id, 'Alcohol']
                         self._insert_classif('Alcohol', subg_id)
@@ -210,7 +210,7 @@ class Classifier:
                             for con in ent.cons]):
                         # print('Is an aldehyde!')
                         self._insert_classif('Aldehyde', subg_id)
-                    if (self.chain.to_el(ent.id,'C') == 2):
+                    if (self.chain.to_els(ent.id,'C') == 2):
                        # For now flags it if there is 2 connection to carbons
                        self._insert_classif('Ether', subg_id)
     
@@ -383,7 +383,7 @@ def _name_con_type(cons: list[Connection],
         else:
             from_id_main = con.from_id
         # Ideally only valid values would get to this point (controlling by maximum connections)
-        if con.type > 1 and con.type < len(INFIXES):
+        if con.type < len(INFIXES):
             if from_id in to_id_pool:
                 # To avoid possible duplicates
                 # The "from" [0] on the connection should be different
@@ -395,11 +395,13 @@ def _name_con_type(cons: list[Connection],
     cons_dict = dict(sorted(cons_dict.items(), key = lambda e: INFIXES[e[0]]))
     #  - Make infix - 
     # Positions
+    if not cons_dict:
+        cons_dict[1] = [0]
     for type in cons_dict:
         # Adds ids
         # A little bit unoptmized tbh, but leaner
         cons_from = [con_from for con_from in cons_dict[type]]
-        if not hide_mult:
+        if not hide_mult and type > 1:
             infix += mult_prefix(cons_from, show_ids = show_ids)
     # Addition of type name
     for type in cons_dict:
@@ -409,7 +411,34 @@ def _name_con_type(cons: list[Connection],
             infix += UNDEF
     return infix
 
-def __pair_func_pos(host_ids: int, subgs: list[int], opt_suffix:str =''):
+
+def _get_prefix_type(subg: list[Entity], get_to_el: Chain.get_to_els, get_main_id: Chain.get_main_path_id) -> str:
+    # -- Se if subgroup would have an unique name --
+    # index 0 the host
+    if len(subg) > 2:
+        # - iso -
+        # Secudnary connected to two Primaries on the subgroup ([1:])
+        for el in subg[1:]:
+            if len(el.cons) > 1:
+                # Looks for connections
+                classif_cons = [_el.classif for _el in get_to_el(el.id, filter=lambda _i: get_main_id(_i) < 0)]
+
+                if el.classif == 'tertiary':
+                    if classif_cons.count('primary') == 2:
+                        return 'iso'
+                    if classif_cons.count('secundary') == 1 and classif_cons.count('primary') == 1:
+                        return 'sec-'
+                if el.classif == 'quaternary' and classif_cons.count('primary') == 3:
+                        return 'terc-'
+                    
+
+        # - terc -
+        # - sec
+    return ''
+
+    
+
+def __pair_func_pos(host_ids: int, subgs: list[int], opt_prefix:list[str] | str = '', opt_suffix:list[str] | str = ''):
     """
     Pair function name and its position on the main path id.
     
@@ -424,12 +453,21 @@ def __pair_func_pos(host_ids: int, subgs: list[int], opt_suffix:str =''):
     zip_subg = zip(host_ids, subgs)
     radical_types = defaultdict(list)  # Defaults to an empty list
 
+    if isinstance(opt_prefix,str):
+        opt_prefix = [opt_prefix] * len(subgs)
+    
+    if isinstance(opt_suffix,str):
+        opt_suffix = [opt_suffix] * len(subgs)
     # Fills radical_types (based on size)
-    for _host_id, _subg in zip_subg:
+    for zip_id, pair in enumerate(zip_subg):
+        _host_id, _subg = pair
         # Note that i_subg is also the id for the host of the group!
         # len - 1 to ignore 'host'
         n_els = len(_subg) - 1
-        n_type = get_prefix(n_els) + opt_suffix
+        n_type = ''
+
+        n_type += opt_prefix[zip_id] + get_prefix(n_els) + opt_suffix[zip_id]
+        
         radical_types[n_type].append(_host_id)
     
     # Orders radical_type (type, ids) tuple based on alphabetical order
@@ -437,21 +475,22 @@ def __pair_func_pos(host_ids: int, subgs: list[int], opt_suffix:str =''):
     return dict(sorted(radical_types.items(), key=lambda k: k[0]))
 
 
-def __name_pairs(gp_pairs: dict, hide_ids = False, trailing_first_hyphen = False) -> str:
+def __name_pairs(gp_pairs: dict, show_ids = True, trailing_first_hyphen = False) -> str:
     final_str = ''
     trailing_hyphen = trailing_first_hyphen
     # Name of the halide
     # Note they are already sorted in alphabetical order
     # and multiplier prefixes don't count towards aplhabetical ordering
     # Adds to string with multiplier
+    # TODO: Maybe "show_id"?
     for _gp_name in gp_pairs:
         _gp_ids = gp_pairs[_gp_name]
-        final_str += mult_prefix(_gp_ids, hide_ids, trailing_hyphen=trailing_hyphen) + _gp_name.lower()
+        final_str += mult_prefix(_gp_ids, show_ids, trailing_hyphen=trailing_hyphen) + _gp_name.lower()
         trailing_hyphen = True
     return final_str
     
 
-def _name_substitutive(classifier: Classifier, hide_ids = False) -> str:
+def _name_substitutive(classifier: Classifier, show_ids = True) -> str:
     final_str = ''
     radical_str = ''
     halides_str = ''
@@ -475,8 +514,12 @@ def _name_substitutive(classifier: Classifier, hide_ids = False) -> str:
         if gp == 'Radical':
             # Separate into groups
             subgs = [classifier.subgroups[subg_id] for subg_id in classifier.classif[gp]]
+            
+            opt_prefixes = []
+            for _subg in subgs:
+                opt_prefixes.append(_get_prefix_type(_subg, classifier.chain.get_to_els, classifier.chain.get_main_path_id))
 
-            gp_radicals = __pair_func_pos(_gp_host, subgs, AFIXES[gp])
+            gp_radicals = __pair_func_pos(_gp_host, subgs, opt_prefixes, AFIXES[gp])
         if gp == 'Ether':
             # Name it directly for now
             print(classifier.subgroups)
@@ -486,10 +529,10 @@ def _name_substitutive(classifier: Classifier, hide_ids = False) -> str:
             ether_str += get_prefix(len(classifier.subgroups[-1]) - 2) + AFIXES[gp]
 
 
-    halides_str = __name_pairs(gp_halides, hide_ids=hide_ids)
+    halides_str = __name_pairs(gp_halides, show_ids=show_ids)
     final_str += halides_str
 
-    radical_str = __name_pairs(gp_radicals, hide_ids=hide_ids, trailing_first_hyphen=final_str != '')
+    radical_str = __name_pairs(gp_radicals, show_ids=show_ids, trailing_first_hyphen=final_str != '')
     final_str += radical_str
 
     final_str += ether_str
@@ -497,7 +540,7 @@ def _name_substitutive(classifier: Classifier, hide_ids = False) -> str:
     return final_str
 
 
-def _name_suffix(classific: Classifier, hide_ids = False, hide_mult = False) -> str:
+def _name_suffix(classific: Classifier, show_ids = True, hide_mult = False) -> str:
     final_str = ''
     main_classif = classific.get_hclass()
     # - Functional positions (ids) -
@@ -506,7 +549,7 @@ def _name_suffix(classific: Classifier, hide_ids = False, hide_mult = False) -> 
         # Counts position
         _ids = classific.host_by_classif[main_classif]
         _main_ids = list(classific.chain.get_main_path_ids(_ids))
-    final_str += mult_prefix(_main_ids, hide_ids)
+    final_str += mult_prefix(_main_ids, show_ids)
     # - Functional suffix -
     final_str += SUFFIXES[classific.get_hclass()]
     return final_str
@@ -535,14 +578,14 @@ def class_chain(chain: Chain):
     _is_acid = _classfier.get_hclass() == 'Carbonic Acid'
 
     # TODO: Reafctor to or HIDE or SHOW
-    _hide_prefix_id = _is_single_atom
+    _show_prefix_id = not _is_single_atom
     _infixed = not _is_nitrogenic
     _show_infix_id = not _is_aromatic
-    _hide_suffix_id = _is_oxygenic or _is_acid or _is_aromatic
+    _show_suffix_id = not (_is_oxygenic and  _is_acid and _is_aromatic)
     _hide_mult = _is_aromatic
     _is_afixed = _is_cyclic or _is_nitrogenic
 
-    prefix = _name_substitutive(_classfier, hide_ids=_hide_prefix_id)
+    prefix = _name_substitutive(_classfier, show_ids=_show_prefix_id)
 
     # If is a cycle (main chain)
     # Maybe add null values for afixes of other classes
@@ -576,7 +619,7 @@ def class_chain(chain: Chain):
                                show_ids=_show_infix_id,
                                hide_mult=_hide_mult)
 
-    suffix += _name_suffix(_classfier, hide_ids=_hide_suffix_id, hide_mult=_hide_mult)
+    suffix += _name_suffix(_classfier, show_ids=_show_suffix_id, hide_mult=_hide_mult)
     
     chain.name = prefix + infix + suffix
 

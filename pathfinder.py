@@ -164,7 +164,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         # 3. Closest group (careful with cyclical logic)
         # Looks to more than 3 connections to carbons
         # Note that any group should flag this, not only substitutive groups
-        if chain.to_el(curr_el.id, filter=lambda con: chain.get_main_path_id(con.to_id) > 0):
+        if chain.to_els(curr_el.id, filter=lambda con: chain.get_main_path_id(con.to_id) > 0):
             contender_group.append(contender.index(id))
 
     if len(best) > 1:
@@ -180,7 +180,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
             best_insat += 1
         # 3. Closest group
-        if chain.to_el(curr_el.id, filter=lambda con: chain.get_main_path_id(con.to_id) > 0):
+        if chain.to_els(curr_el.id, filter=lambda con: chain.get_main_path_id(con.to_id) > 0):
             best_group.append(best.index(id))
     
     # - Comparisons -

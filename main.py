@@ -28,8 +28,7 @@ from classification import class_chain
 from entities import *
 
 def main():
-    # chain_path = "Local/Chains/ácido 3-metilpent-4-enoico.field"
-    chain_path = "Local/Chains/antracene.field"
+    chain_path = "Local/Chains/ácido 3-metilpent-4-enoico.field"
 
     # Pathfinding
     c_main = run_chain(chain_path)

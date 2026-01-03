@@ -53,6 +53,10 @@ class Entity:
         self.id = ent_id
         self.el = el
         self.cons = cons
+
+        # Classification
+        # (Relative to number of carbons connected to it)
+        self.classif = ''
     
     def at_dir(self, dir_to: int):
         """
@@ -180,6 +184,9 @@ class Chain:
         if self.edges == [] and len(self.id_pool) > 0:
             self.edges.append(0)
 
+        # Classification of the elements (based on number of connected carbons)
+        for el in self.chain:
+            el.classif = CCLASSIFICATION[self.to_els(el.id, el.el)]
         # - Elements info -
         # Adds as element
         for el in self.chain:
@@ -339,7 +346,7 @@ class Chain:
     def get_main_path_size(self):
         return len(self.main_path)
     
-    def to_el(self, id: int, el: str = '', filter= lambda e: True) -> int:
+    def to_els(self, id: int, el: str = '', filter= lambda e: True) -> int:
         """
         Docstring for to_el
         
@@ -354,10 +361,13 @@ class Chain:
         :rtype: int
         """
         if el:
-            return sum([self.chain[con.to_id].el == el for con in self.chain[id].cons if filter(con)])
+            return sum([self.chain[con.to_id].el == el for con in self.chain[id] if filter(con)])
         else:
-            return len([con for con in self.chain[id].cons if filter(con)])
+            return len([con for con in self.chain[id] if filter(con)])
     
+    def get_to_els(self, id: int, filter = lambda e: True) -> list[Entity]:
+        return [self.chain[con.to_id] for con in self.chain[id] if filter(con.to_id)]
+
     def _add_element(self, el: Entity):
         el_str = el.el
         # The element itself

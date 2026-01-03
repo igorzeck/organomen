@@ -67,6 +67,13 @@ classifcation:
   Benzene: Benzene
   Naftalene: Naftalene
   Antracene: Antracene
+carbon_classification:
+  # Relative to connections to Carbon atoms
+  - '' # 0 connection
+  - 'primary' # 1 
+  - 'secundary' # 2 
+  - 'tertiary' # 3
+  - 'quaternary' # 4
 # subclassification:
 #   Hydrocarbon:
 #     prefix: Alk

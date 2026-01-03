@@ -92,6 +92,8 @@ HETEROATOMS = {}
 
 CLASSIFICATION = {}
 SUBCLASSIFICATION = {}
+
+CCLASSIFICATION = {}
 # Failsafe for iterative routines
 MAX_ITER = 21
 
@@ -127,6 +129,7 @@ def load_constants(lang: str = ''):
     global HETEROATOMS
     global CLASSIFICATION
     global SUBCLASSIFICATION
+    global CCLASSIFICATION
 
     # - Read YAML resource file -
     # 1. Fallback language
@@ -171,6 +174,7 @@ def load_constants(lang: str = ''):
 
     CLASSIFICATION = res['classifcation']
     # SUBCLASSIFICATION = res['subclassification']
+    CCLASSIFICATION = res['carbon_classification']
 
 # By defautl run
 load_constants()
