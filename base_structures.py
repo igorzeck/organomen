@@ -26,22 +26,35 @@ class Pos:
     def __eq__(self, value):
         return (self.row == value.row and self.col == value.col)
 
+# TODO: Create temporary file with the "recent" files
 # -- Functions --
 # - File handling -
-def abrir_arq(nome_arq: str) -> tuple[tuple[str]]:
+def open_f(filename: str) -> tuple[tuple[str]]:
     # Checks extension
-    _ext = nome_arq.rpartition('.')[-1].lower()
+    _ext = filename.rpartition('.')[-1].lower()
     if _ext not in EXTS:
         raise TypeError(f'File extension is not valid! Supported extensions:\n{EXTS}')
+    
+    # Appends to recent files
+    # TODO: Put it on a constant and make it so it doesn't rewrite if is already
+    #       the same file! (Maybe loading to a constant the contenst beforehand?)
+    recent_files_path: Path = Path('Res') / 'recent_files'
+    if recent_files_path.is_file():
+        with open(recent_files_path, "w") as f:
+            f.write(filename)
+    else:
+        # TODO: Maybe raising an warning?
+        print(f"'{recent_files_path}' not found!")
+
     # Maybe a default dict with functions?
     match _ext:
         case 'field':
-            return _abrir_arq_field(nome_arq)
+            return open_f_field(filename)
         case _:
             raise TypeError(f'\'{_ext}\' is not a supported extension!')
 
 
-def _abrir_arq_field(nome_arq: str) -> tuple[tuple[str]]:
+def open_f_field(filename: str) -> tuple[tuple[str]]:
     """
     Handles .field file opening
     
@@ -50,7 +63,7 @@ def _abrir_arq_field(nome_arq: str) -> tuple[tuple[str]]:
     :return: A 2D matrix
     :rtype: tuple[tuple[str]]
     """
-    with open(nome_arq, "r") as arq:
+    with open(filename, "r") as arq:
         field = tuple([tuple([el.upper() for el in linha.split()]) for linha in arq.readlines() if linha[0] != COMMENT_WILDCARD])
         # Upper case everything
         return field

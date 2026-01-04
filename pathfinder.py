@@ -290,83 +290,6 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         return False
     # If both are equal don't mtter which is returned
 
-
-# TODO: Make it follows all rules for defining main chain!
-# TODO: Make it not start from a heteroatom
-# def run_path_recursive(chain: Chain,
-#              start_pos_id: int,
-#              path_stub: list,
-#              best_stub: list,
-#              origin_dir = 0,
-#              recur = 0):
-#     """
-#     Go through the 2D representation of a carbon chain
-#     path
-#     recur: Current recursion
-#     origin_dir: Previous mirror direction to avoid backtracking
-#     """
-#     # Start position of this recursion
-#     pos_id = start_pos_id
-    
-#     # Temporary as it doesn't work with recursion!
-#     while True:
-#         print_field(chain.field, [chain.id_pool[pos_id]])
-#         nxt_els = chain.chain[pos_id]
-#         nxt_n_con = len(nxt_els.cons)
-#         # Cycle detection
-#         if pos_id in path_stub:
-#             # It will have repeated position
-#             # But it will make it easier to glance at
-#             # Cyclic behaviour!
-#             path_stub.append(pos_id)
-#             return path_stub
-#         path_stub.append(pos_id)
-
-#         # Lone heteroatom detection
-#         # Kinda hacky tbh
-#         pos = chain.id_pool[pos_id]
-#         el = chain.field[pos.row][pos.col]
-#         if el != 'C':
-#             if len(scout(chain.field, chain.id_pool,pos_id)) == 1:
-#                 return []
-
-#         # if (nxt_n_con == 2 and pos_id not in chain.edges) or pos_id == start_pos_id:
-#         if (nxt_n_con <= 2):
-#             # If it has one possible path, move
-#             jump = False
-#             for _con in nxt_els:
-#                 nxt_dir = _con.dir
-#                 nxt_el_pos_id = _con.to_id
-#                 if nxt_dir != origin_dir:
-#                     origin_dir = -nxt_dir
-#                     pos_id = nxt_el_pos_id
-#                     jump = True
-#                     break
-#             if jump:
-#                 continue
-#         if nxt_n_con > 2 and pos_id not in chain.edges:
-#             # Recursion for multiple paths
-#             for _con in nxt_els:
-#                 nxt_dir = _con.dir
-#                 nxt_el_pos_id = _con.to_id
-#                 if nxt_dir != origin_dir:
-#                     print(f"({recur + 1}) Going (Dir: {nxt_dir}, ID: {nxt_el_pos_id})")
-#                     temp_stub = run_path_recursive(chain, nxt_el_pos_id, origin_dir=-nxt_dir, recur = recur + 1, path_stub = deepcopy(path_stub), best_stub=best_stub)
-#                     if _is_higher(best_stub, temp_stub, chain.chain):
-#                         best_stub = temp_stub
-#                     print_field(chain.field, [chain.id_pool[id] for id in path_stub])
-
-#             break
-#         if pos_id in chain.edges:
-#             print(f"({recur}) Done")
-#             if _is_higher(best_stub, path_stub, chain.chain):
-#                 best_stub = path_stub
-#                 chain.main_path = best_stub
-#             print_field(chain.field, [chain.id_pool[id] for id in path_stub])
-#             break
-#     return best_stub
-
-
 # TODO: Oxygen should go to main chain except if on edge! (So does Nitrogen)
 # Maybe they should BE the main_chain (registered as edge if connection to multiple Cs?)
 def run_path_iterative(chain: Chain):
@@ -409,7 +332,10 @@ def run_path_iterative(chain: Chain):
                 
             # - End of Path check -
             # At edge
-            eop = (curr_el in chain.edges)
+            # Detects if it's an edge (Primary) or at the start of path (Cyclical)
+            # NOTE: Somewhat of a patchwork. Tbh I already know if is a cylce at this
+            #       point, so maybe a less janky code could have been made here
+            eop = (curr_el.classif == PRIM or curr_el.id == curr_path[0])
             
             if curr_path_id < len(curr_path):
                 curr_path = curr_path[:curr_path_id]

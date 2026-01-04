@@ -1,6 +1,6 @@
 # TODO: Entity object with iter overload so you can get its connections
 # TODO: Make an field with id instead of elements and maybe negative for connections
-from base_structures import Pos, print_field, abrir_arq, CD_OFFS
+from base_structures import Pos, print_field, open_f, CD_OFFS
 from constants import *
 from auxiliary import *
 
@@ -150,39 +150,7 @@ class Chain:
 
         self.elements = {'H': 0}
 
-        # Create chain representation of the field
-        # It indexes self.chain by id_pos
-        _nitrogen_chain = False
-        for id_pos, pos in enumerate(self.id_pool):
-            el_str = field[pos.row][pos.col]
-            con_info = scout(field, self.id_pool, id_pos, nxt_dir=True, nxt_con_val=True, nxt_str=True)
-            # Connections
-            cons = []
-            c_count = 0
-            all_count = 0
-            for raw_con in con_info:
-                nxt_id, dir, type, ent_str = raw_con
-                cons.append(Connection(id_pos, nxt_id, dir, type))
-                if ent_str == 'C':
-                    c_count += 1
-                all_count += 1
-            self.chain.append(Entity(id_pos, el_str, cons))
-
-            # If is Carbon and with one connection
-            # TODO: Handle Nitrogen (Maybe treat them as 'C' if detected)
-            # Depends on the situation though!
-            if (el_str == 'C' and c_count <= 1) and (not _nitrogen_chain):
-                self.edges.append(id_pos)
-            # If there is a Nitrogen with ONLY connections to Cs, turns into
-            # An edge (amine/amide)
-            if (el_str == 'N' and c_count == all_count):
-                self.edges = [id_pos]
-                _nitrogen_chain = True
-        
-        # For now, if edgless - and there is more than 1 carbon -
-        # the first position is given the honour of "edge"
-        if self.edges == [] and len(self.id_pool) > 0:
-            self.edges.append(0)
+        self._make_chain_from_field(field)
 
         # Classification of the elements (based on number of connected carbons)
         for el in self.chain:
@@ -205,7 +173,7 @@ class Chain:
                     f"\033[38;5;232m{str(num)}\033[0m"
 
     def load_file(self, filename: str):
-        field: tuple[tuple[str]] = abrir_arq(filename)
+        field: tuple[tuple[str]] = open_f(filename)
         self.initiate(field)
 
     def load_chain(self, chain: list[Entity]):
@@ -299,6 +267,52 @@ class Chain:
                     curr_pos_id = coords.index(curr_pos)
                     field[normalized_pos.row][normalized_pos.col] = str(els[curr_pos_id])
         return field
+
+    def _make_chain_from_field(self,  field: list[str]):
+        # Create chain representation of the field
+        # It indexes self.chain by id_pos
+        _nitrogen_chain = False
+        _insasts = set() # for optimization get all insats ahead
+        for id_pos, pos in enumerate(self.id_pool):
+            el_str = field[pos.row][pos.col]
+            con_info = scout(field, self.id_pool, id_pos, nxt_dir=True, nxt_con_val=True, nxt_str=True)
+            # Connections
+            cons = []
+            c_count = 0
+            all_count = 0
+            for raw_con in con_info:
+                nxt_id, dir, type, ent_str = raw_con
+                if (type > 1) and (ent_str == 'C'):
+                    _insasts.add(id_pos)
+                cons.append(Connection(id_pos, nxt_id, dir, type))
+                if ent_str == 'C':
+                    c_count += 1
+                all_count += 1
+            self.chain.append(Entity(id_pos, el_str, cons))
+
+            # If is Carbon and with one connection
+            # TODO: Handle Nitrogen (Maybe treat them as 'C' if detected)
+            # Depends on the situation though!
+            if (el_str == 'C' and c_count <= 1) and (not _nitrogen_chain):
+                self.edges.append(id_pos)
+            # If there is a Nitrogen with ONLY connections to Cs, turns into
+            # An edge (amine/amide)
+            if (el_str == 'N' and c_count == all_count):
+                self.edges = [id_pos]
+                _nitrogen_chain = True
+    
+        # For now, if edgless - and there is more than 1 carbon -
+        # Treat insaturations (in _insats) as an edge
+        # Otherwise the first position is the "edge"
+        # NOTE: This make it possible for it to start and end
+        #       whithin a cycle "between" two edges...
+        #       though it appear to not cause a problem with pathfinding
+        if self.edges == [] and len(self.id_pool) > 0:
+            # There will at least be 2 "insaturations" for each double C connections
+            if _insasts:
+                self.edges.extend(sorted(_insasts))
+            else:
+                self.edges.append(0)
 
     def set_main_path(self, main_path: list[int]):
         if main_path:

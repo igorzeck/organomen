@@ -51,6 +51,13 @@ DOUBLE = 2
 TRIPLE = 3
 QUADRUPLE = 4
 
+# Entity type (per Carbon connection)
+# TODO: padronize so it is translatable
+PRIM = 'primary'
+SEC = 'secondary'
+TERT = 'tertiary'
+QUART = 'quaternary'
+
 # Relative to N of Cs in main chain
 PREFIXES = [
     '',
@@ -85,7 +92,7 @@ UNDEF = ''
 SUFFIXES = {}
 INFIXES = []
 MULT_PREFS = []
-AFIXES = {}
+AFFIXES = {}
 
 HALIDES = {}
 HETEROATOMS = {}
@@ -124,7 +131,7 @@ def load_constants(lang: str = ''):
     global SUFFIXES
     global INFIXES
     global MULT_PREFS
-    global AFIXES
+    global AFFIXES
     global HALIDES
     global HETEROATOMS
     global CLASSIFICATION
@@ -165,7 +172,7 @@ def load_constants(lang: str = ''):
     SUFFIXES = res['suffixes'] | {UNRESOLVED:'NONE'}
     INFIXES = res['infixes']
     MULT_PREFS = res['multiplier_prefixes']
-    AFIXES = res['afixes']
+    AFFIXES = res['afixes']
 
     HALIDES = res['heteroatoms']['halides']
     HETEROATOMS = {}

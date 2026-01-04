@@ -26,22 +26,29 @@
 from pathfinder import run_chain
 from classification import class_chain
 from entities import *
+from constants import EXTS
+
+import sys
 
 def main():
-    chain_path = "Local/Chains/ácido 3-metilpent-4-enoico.field"
+    # File handling
+    recent_files_path: Path = Path('Res') / 'recent_files'
+    default_path = ''
+
+    if recent_files_path.is_file():
+        with open(recent_files_path, "r") as arq:
+            default_path = arq.readline()
+    else:
+        print("No recent files found!")
+    
+    curr_f = sys.argv[1]
+
+    chain_path = curr_f if curr_f.rpartition('.')[-1].lower() in EXTS else default_path
 
     # Pathfinding
     c_main = run_chain(chain_path)
     class_chain(c_main)
     print(c_main)
-
-    # c_test = Chain()
-    # c_test.load_chain(c_main.chain)
-    # print_field(c_test.field)
-    # c_test = run_chain(c_test.field)
-    # class_chain(c_test)
-    # print(c_test)
-
 
 
 # -- Start --

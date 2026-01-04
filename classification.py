@@ -1,3 +1,4 @@
+# TODO: Separate naming and classification into different files
 # CLassification is done in 4 steps:
 # 1. Atom by atom
 # 2. Group by group
@@ -324,12 +325,12 @@ class Classifier:
 # Get connections infix
 def mult_prefix(ids: list[int] = [],
                 show_ids = False,
-                trailing_hyphen = True):
+                trailing_str = True):
     n = len(ids)
-    _trailing = '-' if trailing_hyphen else ''
+    _trailing = '-' if trailing_str else ''
     
     # NOTE: For now assumes all multiple connection have this 'a' added (hardcoded until figured out)
-    _mult_prefix_str = 'a' if n > 1 else ''
+    _mult_prefix_str = 'a' if (n > 1 and trailing_str) else ''
     
     if n < len(MULT_PREFS):
         if (show_ids) and (n > 0):
@@ -422,15 +423,14 @@ def _get_prefix_type(subg: list[Entity], get_to_el: Chain.get_to_els, get_main_i
             if len(el.cons) > 1:
                 # Looks for connections
                 classif_cons = [_el.classif for _el in get_to_el(el.id, filter=lambda _i: get_main_id(_i) < 0)]
-
-                if el.classif == 'tertiary':
-                    if classif_cons.count('primary') == 2:
+                # TODO: Make it translatable
+                if el.classif == TERT:
+                    if classif_cons.count(PRIM) == 2:
                         return 'iso'
-                    if classif_cons.count('secundary') == 1 and classif_cons.count('primary') == 1:
+                    if classif_cons.count(SEC) == 1 and classif_cons.count(PRIM) == 1:
                         return 'sec-'
-                if el.classif == 'quaternary' and classif_cons.count('primary') == 3:
-                        return 'terc-'
-                    
+                if el.classif == QUART and classif_cons.count(PRIM) == 3:
+                        return 'terc-' 
 
         # - terc -
         # - sec
@@ -485,7 +485,7 @@ def __name_pairs(gp_pairs: dict, show_ids = True, trailing_first_hyphen = False)
     # TODO: Maybe "show_id"?
     for _gp_name in gp_pairs:
         _gp_ids = gp_pairs[_gp_name]
-        final_str += mult_prefix(_gp_ids, show_ids, trailing_hyphen=trailing_hyphen) + _gp_name.lower()
+        final_str += mult_prefix(_gp_ids, show_ids, trailing_str=trailing_hyphen) + _gp_name.lower()
         trailing_hyphen = True
     return final_str
     
@@ -519,14 +519,14 @@ def _name_substitutive(classifier: Classifier, show_ids = True) -> str:
             for _subg in subgs:
                 opt_prefixes.append(_get_prefix_type(_subg, classifier.chain.get_to_els, classifier.chain.get_main_path_id))
 
-            gp_radicals = __pair_func_pos(_gp_host, subgs, opt_prefixes, AFIXES[gp])
+            gp_radicals = __pair_func_pos(_gp_host, subgs, opt_prefixes, AFFIXES[gp])
         if gp == 'Ether':
             # Name it directly for now
             print(classifier.subgroups)
             print(classifier.classif[gp])
 
             # -2 to avoid counting the oxygen AND the host
-            ether_str += get_prefix(len(classifier.subgroups[-1]) - 2) + AFIXES[gp]
+            ether_str += get_prefix(len(classifier.subgroups[-1]) - 2) + AFFIXES[gp]
 
 
     halides_str = __name_pairs(gp_halides, show_ids=show_ids)
@@ -580,20 +580,28 @@ def class_chain(chain: Chain):
     # TODO: Reafctor to or HIDE or SHOW
     _show_prefix_id = not _is_single_atom
     _infixed = not _is_nitrogenic
-    _show_infix_id = not _is_aromatic
+    # NOTE: It doesn't discriminate between main chain instaturations or not
+    #       Should be fine regardless here
+    _show_infix_id = not _is_aromatic and len(_classfier.insaturations) > 2 # 2 instaturations per double connection
     _show_suffix_id = not (_is_oxygenic and  _is_acid and _is_aromatic)
     _hide_mult = _is_aromatic
-    _is_afixed = _is_cyclic or _is_nitrogenic
+
+    _main_classif = _classfier.get_classif(0)
 
     prefix = _name_substitutive(_classfier, show_ids=_show_prefix_id)
 
     # If is a cycle (main chain)
     # Maybe add null values for afixes of other classes
     # Afixables
-    if _is_afixed:
-        prefix += AFIXES[_classfier.get_classif(0)]
-    else:
-        prefix += _name_size_pref(len(set(chain.main_path)))
+    if _main_classif in AFFIXES:
+        prefix += AFFIXES[_main_classif]
+
+    # Patchwork: For now adds hypen if next word is 'h' and last is vogal
+    if not (_is_nitrogenic or _is_aromatic):
+        size_pref = _name_size_pref(len(set(chain.main_path)))
+        if size_pref[0] == 'h' and prefix[-1] in 'aeiou':
+            size_pref = '-' + size_pref
+        prefix += size_pref
 
         # TODO: better understand when to use the hyphen!
 
@@ -626,9 +634,9 @@ def class_chain(chain: Chain):
     # Make this better!
     if _is_acid:
         if REVERSE_STR:
-            chain.name = AFIXES['Acid'] + chain.name
+            chain.name = AFFIXES['Acid'] + chain.name
         else:
-            chain.name += AFIXES['Acid']
+            chain.name += AFFIXES['Acid']
     
     chain.func_name = "NOT IMPLEMENTED!"
     # TODO: Cyclan, Cyclin and whatnot?
