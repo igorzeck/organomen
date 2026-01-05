@@ -29,7 +29,7 @@ def _get_host(main_chain: list[Entity], ent: Entity):
 
 
 def iterate_subpaths(chain: Chain,
-                     cyclical:bool = False) -> list[tuple[Entity]]:
+                     main_cyclical:bool = False) -> list[tuple[Entity]]:
     """
     Iterates and captures all subgroups connected to chain.main_chain
     
@@ -41,7 +41,8 @@ def iterate_subpaths(chain: Chain,
     :rtype: list[tuple[Entity]]
     """
     subgroups = []
-    for main_ent in chain.main_chain[(1 if cyclical else 0):]:
+    cyclicals = []
+    for main_ent in chain.main_chain[(1 if main_cyclical else 0):]:
         for nxt_con in main_ent.cons:
             nxt_ent = chain.chain[nxt_con.to_id]
             if (nxt_ent not in chain.main_chain):
@@ -74,6 +75,10 @@ def run_subpath(chain: Chain, ent: Entity):
     failsafe = 0
     ents_pool: list[Entity] = [ent]
     queue: list[Entity] = []  # Stack with ids by order
+
+    # - Cyclical -
+    max_cycle_size = 0
+    max_cycle_junct_id = -1
     while True:
         # Updates queue
         for con in ent:
@@ -85,9 +90,25 @@ def run_subpath(chain: Chain, ent: Entity):
                     ents_pool.insert(0,nxt_ent)
                     continue
                 else:
-                    ents_pool.append(nxt_ent)
                     queue.append(nxt_ent)
+                    ents_pool.append(nxt_ent)
+            else:
+                # TODO: take into account the possibility of multiple cycles
+                #       having the same junctions (e.g. Antracene)
+                # It may flag multiple cycle points, in this case, the farthest apart is the canonical
+                nxt_ent_pool_id = ents_pool.index(nxt_ent)
+                curr_cycle_size = len(ents_pool) - nxt_ent_pool_id
+                if curr_cycle_size > 3:
+                    if curr_cycle_size > max_cycle_size:
+                        max_cycle_size = curr_cycle_size
+                        max_cycle_junct_id = nxt_ent_pool_id
         if not queue:
+            # Appends entry point for the group
+            if max_cycle_junct_id >= 0:
+                # NOTE: Assumes that if it sees the same
+                #       id is within a cycle if there is at least on carbon in between
+                ents_pool.append(ents_pool[max_cycle_junct_id])
+            # Cheks if last id was nxt_ent
             return tuple(ents_pool)
         # Edge-case
         # Goes FIFO through queue
@@ -105,6 +126,7 @@ def has_hetero(main_ents: Entity | list[Entity] | tuple[Entity]) -> bool:
     else:
         return False
 
+# TODO: Maybe presaving best chain and using multiple cores
 # TODO: For same size subpaths, the ones with the most ramifications should be the main one
 # TODO: The lower position number should fallback to alphabetical order when equivalent positions
 def _is_higher(best: list[int], contender: list[int], chain: Chain):
@@ -207,6 +229,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
             # Contender has more groups 
             return True
         # 4.2. Sees nature of groups and follow alphabetical order
+        # I think is better to numerate after....
         elif len(contender_group) == len(best_group):
             # Ordering pair function
             ordering_func = lambda el: (el[1], el[0])
@@ -289,6 +312,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
     else:
         return False
     # If both are equal don't mtter which is returned
+    # But return a False would be faster!
 
 # TODO: Oxygen should go to main chain except if on edge! (So does Nitrogen)
 # Maybe they should BE the main_chain (registered as edge if connection to multiple Cs?)

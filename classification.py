@@ -107,11 +107,18 @@ class Classifier:
         """
         return list(self._hclass.values())[0] + (PLURAL_STR if plural else '')
 
-    def get_classif(self, id: int) -> str:
+    def get_classif(self, id: int) -> str | list[str]:
+        classifs = []
         for classif in self.classif:
             if id in self.classif[classif]:
-                return classif
-        return 'UNRESOLVED'  # Maybe adding an immutable constant?
+                classifs.append(classif)
+        # Sadly, I can't just unpack in one go...
+        if len(classifs) == 1:
+            return classifs[0]
+        elif len(classifs) > 1:
+            return classifs
+        else:
+            return 'UNRESOLVED'  # Maybe adding an immutable constant?
 
     def get_trad_classif(self, id: int) -> str:
         for classif in self.classif:
@@ -124,15 +131,20 @@ class Classifier:
         # Maybe take it out the subgroups...
         return [subg_id for subg_id, subg in enumerate(self.subgroups[1:]) if subg[0] == host_id]
     
-    def get_main_insat(self):
-        return [insat for insat in self.insaturations if insat.from_id in self.chain.main_path]
+    # def get_main_insat(self):
+    #     return [insat for insat in self.insaturations if insat.from_id in self.chain.main_path]
     
+    def get_subg_insat(self, subg_id: int):
+        return [insat for insat in self.insaturations if self.chain[insat.from_id] in self.subgroups[subg_id]]
+
     # - Chemical logic -
     def _define_subgroups(self):
         # TODO: Cleanup
         # Starts from a point on the main_chains
-        cyclical = self.get_classif(0) == 'Cycle'
-        self.subgroups.extend(iterate_subpaths(self.chain, cyclical))
+        _cyclical = self.get_classif(0) == 'Cycle'
+        _subs = iterate_subpaths(self.chain, _cyclical)
+        
+        self.subgroups.extend(_subs)
                     
         # ID 0 is the main chain!
         for subg_id in range(1, len(self.subgroups)):
@@ -152,12 +164,17 @@ class Classifier:
     # (tree-like function cascade)
     # I think is better to have an if forest tbh...
     def _root_question(self, subg_id: int):
+        # NOTE: same id can have multiple classifications!
         # 0. Is it a cycle?
-        if (self.subgroups[subg_id][0] == self.subgroups[subg_id][-1]) and\
-            (len(self.subgroups[subg_id]) > 1):
-            self.main_cyclical = True
+        # Take this out of here
+        # By default cycle repetition is at the end of the subgroup!
+        two_eq = (self.subgroups[subg_id][-1] in self.subgroups[subg_id][:-1]) and\
+            (len(self.subgroups[subg_id]) > 1)
+        if two_eq:
+            if subg_id == 0:
+                self.main_cyclical = True
             # Tries to see if it's a special cycle
-            self._insert_classif(self._resolve_cycle( self.subgroups[subg_id]), subg_id)
+            self._insert_classif(self._resolve_cycle(self.subgroups[subg_id]), subg_id)
         # 1. Has an hteroatom?
         if any([ent.is_hetero() for ent in self.subgroups[subg_id]]):
             # print(f"{self.subgroups[subg_id]} has an heteroatom!")
@@ -235,10 +252,16 @@ class Classifier:
         #       Maybe a function to find and count them?
         _classif = 'Cycle'
         n2 = 0
-        for el in subg[1:]:
+        # This way avoid counting the start of the cycle multiple times
+        unique_ids = set(_el.id for _el in subg)
+        for i in unique_ids:
+            el = subg[subg.index(i)]
             if el.cons.count(2) == 1:
                 n2 += 1
         n2 /= 2 # Double counting
+        # TODO: It's possible to flag other cycles as its not counting connection density
+        #       However, as of now, I need it to flag only by n2 quantity (for groups)!
+        #       But, I need to find a better way... 
         if n2 == 3:
             _classif = 'Benzene'
         if n2 == 5:
@@ -350,8 +373,9 @@ def _name_size_pref(n_main: int) -> str:
         return UNDEF
 
 
+# TODO: Maybe only on_main and no show_ids variable!
 def _name_con_type(cons: list[Connection],
-                   on_main: Chain.get_main_path_id,
+                   on_main: Chain.get_main_path_id = None,
                    show_ids: bool = True,
                    hide_mult: bool = False) -> str:
     """
@@ -377,7 +401,7 @@ def _name_con_type(cons: list[Connection],
         from_id = con.from_id
         to_id = con.to_id
 
-        if show_ids:
+        if show_ids and on_main:
             from_id_main = on_main(con.from_id)
             if from_id_main < 0:
                 raise ValueError("From ID outside main path with shoud_ids set to True!")
@@ -431,14 +455,11 @@ def _get_prefix_type(subg: list[Entity], get_to_el: Chain.get_to_els, get_main_i
                         return 'sec-'
                 if el.classif == QUART and classif_cons.count(PRIM) == 3:
                         return 'terc-' 
-
-        # - terc -
-        # - sec
     return ''
 
     
 
-def __pair_func_pos(host_ids: int, subgs: list[int], opt_prefix:list[str] | str = '', opt_suffix:list[str] | str = ''):
+def __pair_func_pos(host_ids: int, subgs: list[int], opt_prefix:list[str] | str = '', opt_infix:list[str] | str = '', opt_suffix:list[str] | str = '', size_included: list[bool] | bool = True):
     """
     Pair function name and its position on the main path id.
     
@@ -456,19 +477,29 @@ def __pair_func_pos(host_ids: int, subgs: list[int], opt_prefix:list[str] | str 
     if isinstance(opt_prefix,str):
         opt_prefix = [opt_prefix] * len(subgs)
     
+    if isinstance(opt_infix,str):
+        opt_infix = [opt_infix] * len(subgs)
+
     if isinstance(opt_suffix,str):
         opt_suffix = [opt_suffix] * len(subgs)
-    # Fills radical_types (based on size)
+    
+    if isinstance(size_included, bool):
+        size_included = [size_included] * len(subgs)
+    # Fills radical_types (based on size if set so)
     for zip_id, pair in enumerate(zip_subg):
         _host_id, _subg = pair
-        # Note that i_subg is also the id for the host of the group!
-        # len - 1 to ignore 'host'
-        n_els = len(_subg) - 1
-        n_type = ''
-
-        n_type += opt_prefix[zip_id] + get_prefix(n_els) + opt_suffix[zip_id]
+        type_name = ''
+        size_pref = ''
         
-        radical_types[n_type].append(_host_id)
+        if size_included[zip_id]:
+            # Note that i_subg is also the id for the host of the group!
+            # len - 1 to ignore 'host'
+            n_els = len(_subg) - 1
+            size_pref =  get_prefix(n_els) 
+
+        type_name += opt_prefix[zip_id] + size_pref + opt_infix[zip_id] +  opt_suffix[zip_id]
+        
+        radical_types[type_name].append(_host_id)
     
     # Orders radical_type (type, ids) tuple based on alphabetical order
     # NOTE: -thyl is the same for every radical, so don't matter on the ordering
@@ -504,8 +535,8 @@ def _name_substitutive(classifier: Classifier, show_ids = True) -> str:
         _gp_name = ''
         _gp_host = []
         
-        for _host in classifier.host_by_classif[gp]:
-            _gp_host.append(classifier.chain.get_main_path_id(_host))
+        for _host_id in classifier.host_by_classif[gp]:
+            _gp_host.append(classifier.chain.get_main_path_id(_host_id))
 
         if gp in HALIDES:
             _gp_name = HALIDES[gp]
@@ -513,13 +544,33 @@ def _name_substitutive(classifier: Classifier, show_ids = True) -> str:
             gp_halides[_gp_name] = _gp_host
         if gp == 'Radical':
             # Separate into groups
-            subgs = [classifier.subgroups[subg_id] for subg_id in classifier.classif[gp]]
+            subgs_id = [subg_id for subg_id in classifier.classif[gp]]
+            subgs = [classifier.subgroups[subg_id] for subg_id in subgs_id]
             
             opt_prefixes = []
-            for _subg in subgs:
-                opt_prefixes.append(_get_prefix_type(_subg, classifier.chain.get_to_els, classifier.chain.get_main_path_id))
+            opt_infixes = []
+            has_size_pref = []
 
-            gp_radicals = __pair_func_pos(_gp_host, subgs, opt_prefixes, AFFIXES[gp])
+            for _i, _subg in enumerate(subgs):
+                # Checks other classifications
+                curr_subg_id = subgs_id[_i]
+
+                _classifs = classifier.get_classif(curr_subg_id)
+                if isinstance(_classifs, list):
+                    opt_infixes.append('')
+                    has_size_pref.append(False)
+                    # Maybe using the affixes bellow?
+                    if 'Benzene' in _classifs:
+                        if len(_subg) - 2 > 6:
+                            opt_prefixes.append('benz')
+                        else:
+                            opt_prefixes.append('fen')
+                else:
+                    opt_infixes.append(_name_con_type(classifier.get_subg_insat(curr_subg_id), show_ids=False))
+                    has_size_pref.append(True)
+                    opt_prefixes.append(_get_prefix_type(_subg, classifier.chain.get_to_els, classifier.chain.get_main_path_id))
+
+            gp_radicals = __pair_func_pos(_gp_host, subgs, opt_prefixes, opt_infixes, opt_suffix=AFFIXES[gp], size_included=has_size_pref)
         if gp == 'Ether':
             # Name it directly for now
             print(classifier.subgroups)
@@ -622,7 +673,7 @@ def class_chain(chain: Chain):
             old_pos = pos
     
     if _infixed:
-        infix = _name_con_type(_classfier.get_main_insat(),
+        infix = _name_con_type(_classfier.get_subg_insat(0),
                                _classfier.chain.get_main_path_id,
                                show_ids=_show_infix_id,
                                hide_mult=_hide_mult)
