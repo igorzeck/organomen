@@ -379,6 +379,7 @@ class Chain:
         else:
             return len([con for con in self.chain[id] if filter(con)])
     
+    # TODO: Make this streamlined version work!
     def get_to_els(self, id: int, filter = lambda e: True) -> list[Entity]:
         return [self.chain[con.to_id] for con in self.chain[id] if filter(con.to_id)]
 

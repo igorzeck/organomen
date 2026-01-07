@@ -38,8 +38,9 @@ def open_f(filename: str) -> tuple[tuple[str]]:
     # Appends to recent files
     # TODO: Put it on a constant and make it so it doesn't rewrite if is already
     #       the same file! (Maybe loading to a constant the contenst beforehand?)
-    recent_files_path: Path = Path('Res') / 'recent_files'
+    recent_files_path: Path = CONF_PATH / 'recent_files'
     if recent_files_path.is_file():
+        # As of now it always overwrite its content!
         with open(recent_files_path, "w") as f:
             f.write(filename)
     else:

@@ -22,7 +22,6 @@
 # -- Imports --
 # from base_structures import load_constants
 # load_constants(lang = 'pt-br')  # Load constants based on language
-
 from pathfinder import run_chain
 from classification import class_chain
 from entities import *
@@ -32,7 +31,7 @@ import sys
 
 def main():
     # File handling
-    recent_files_path: Path = Path('Res') / 'recent_files'
+    recent_files_path: Path = CONF_PATH / 'recent_files'
     default_path = ''
 
     if recent_files_path.is_file():
@@ -41,14 +40,32 @@ def main():
     else:
         print("No recent files found!")
     
-    curr_f = sys.argv[1]
+    if len(sys.argv) > 1:
+        curr_f = sys.argv[1]
+    else:
+        curr_f = ''
 
     chain_path = curr_f if curr_f.rpartition('.')[-1].lower() in EXTS else default_path
 
     # Pathfinding
-    c_main = run_chain(chain_path)
-    class_chain(c_main)
-    print(c_main)
+    # - Autonomous test -
+    if curr_f.rpartition('.')[2] == 'field' and AUTOTEST:
+        c_main = run_chain(chain_path)
+        class_chain(c_main)
+        print(c_main)
+    else:
+        sample_path = Path('Sample_chains')
+        total_str = []
+        for f in sample_path.glob('*.field'):
+            c_main = run_chain(f.absolute().as_posix())
+            class_chain(c_main)
+            final_name = f.name.split('.')[0]
+            sign = '==' if final_name == c_main.name else '!='
+            color_sign = ("\033[32m" if sign == '==' else "\033[31m") + sign + "\033[0m"
+            total_str.append((c_main.name, color_sign, final_name))
+            print(c_main.name, color_sign, final_name)
+            del(c_main)
+        print('\n'.join([' '.join(l) for l in total_str]))
 
 
 # -- Start --

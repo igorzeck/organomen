@@ -29,7 +29,8 @@ def _get_host(main_chain: list[Entity], ent: Entity):
 
 
 def iterate_subpaths(chain: Chain,
-                     main_cyclical:bool = False) -> list[tuple[Entity]]:
+                     main_cyclical:bool = False,
+                     prolix = PROLIX) -> list[tuple[Entity]]:
     """
     Iterates and captures all subgroups connected to chain.main_chain
     
@@ -41,7 +42,6 @@ def iterate_subpaths(chain: Chain,
     :rtype: list[tuple[Entity]]
     """
     subgroups = []
-    cyclicals = []
     for main_ent in chain.main_chain[(1 if main_cyclical else 0):]:
         for nxt_con in main_ent.cons:
             nxt_ent = chain.chain[nxt_con.to_id]
@@ -50,11 +50,12 @@ def iterate_subpaths(chain: Chain,
                 
                 subgroups.append(_subgroup)
 
-                print(f"Captured subgroup ({len(subgroups)}):")
-                print(_subgroup)
-                print_field(chain.field,
-                            [chain.id_pool[el.id] for el in _subgroup],
-                            highlight_color_only=True)
+                if prolix:
+                    print(f"Captured subgroup ({len(subgroups)}):")
+                    print(_subgroup)
+                    print_field(chain.field,
+                                [chain.id_pool[el.id] for el in _subgroup],
+                                highlight_color_only=True)
     return subgroups
 
 
@@ -76,12 +77,17 @@ def run_subpath(chain: Chain, ent: Entity):
     ents_pool: list[Entity] = [ent]
     queue: list[Entity] = []  # Stack with ids by order
 
+    origin_id = -1
+
     # - Cyclical -
     max_cycle_size = 0
     max_cycle_junct_id = -1
     while True:
         # Updates queue
         for con in ent:
+            # If is the origin id ignores it
+            if con.to_id == origin_id:
+                continue
             nxt_ent = chain[con.to_id]
             if nxt_ent not in ents_pool:
                 if nxt_ent in chain.main_chain:
@@ -90,7 +96,7 @@ def run_subpath(chain: Chain, ent: Entity):
                     ents_pool.insert(0,nxt_ent)
                     continue
                 else:
-                    queue.append(nxt_ent)
+                    queue.append((nxt_ent, ent.id))
                     ents_pool.append(nxt_ent)
             else:
                 # TODO: take into account the possibility of multiple cycles
@@ -112,7 +118,7 @@ def run_subpath(chain: Chain, ent: Entity):
             return tuple(ents_pool)
         # Edge-case
         # Goes FIFO through queue
-        ent = queue.pop()
+        ent, origin_id = queue.pop()
 
         failsafe += 1
         if failsafe > 100:
@@ -186,7 +192,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         # 3. Closest group (careful with cyclical logic)
         # Looks to more than 3 connections to carbons
         # Note that any group should flag this, not only substitutive groups
-        if chain.to_els(curr_el.id, filter=lambda con: chain.get_main_path_id(con.to_id) > 0):
+        if chain.to_els(curr_el.id, filter=lambda con: con.to_id not in contender):
             contender_group.append(contender.index(id))
 
     if len(best) > 1:
@@ -202,7 +208,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
             best_insat += 1
         # 3. Closest group
-        if chain.to_els(curr_el.id, filter=lambda con: chain.get_main_path_id(con.to_id) > 0):
+        if chain.to_els(curr_el.id, filter=lambda con: con.to_id not in best):
             best_group.append(best.index(id))
     
     # - Comparisons -
@@ -228,6 +234,8 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         if len(contender_group) > len(best_group):
             # Contender has more groups 
             return True
+
+        # TODO: Get rid of this
         # 4.2. Sees nature of groups and follow alphabetical order
         # I think is better to numerate after....
         elif len(contender_group) == len(best_group):
@@ -316,7 +324,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
 
 # TODO: Oxygen should go to main chain except if on edge! (So does Nitrogen)
 # Maybe they should BE the main_chain (registered as edge if connection to multiple Cs?)
-def run_path_iterative(chain: Chain):
+def run_path_iterative(chain: Chain, prolix=PROLIX):
     best_path: list[int] = []
 
     for start_id in chain.edges:
@@ -324,11 +332,12 @@ def run_path_iterative(chain: Chain):
         curr_path: list[int] = [start_id]
         action_stack: list[tuple] = []
 
-        print(f"Starting at edge {start_id}")
-        print_field(
-            chain.field,
-            highlights=[chain.id_pool[start_id]]
-        )
+        if prolix:
+            print(f"Starting at edge {start_id}")
+            print_field(
+                chain.field,
+                highlights=[chain.id_pool[start_id]]
+            )
 
         # End of Path flag
         eop = False
@@ -350,9 +359,11 @@ def run_path_iterative(chain: Chain):
             # A little out there code though
             curr_path_id, curr_el_id, origin_dir = action_stack.pop()
             curr_el = chain.chain[curr_el_id]
-            print_field(
-                chain.field,
-                highlights=[chain.id_pool[curr_el_id]])
+
+            if prolix:
+                print_field(
+                    chain.field,
+                    highlights=[chain.id_pool[curr_el_id]])
                 
             # - End of Path check -
             # At edge
@@ -381,12 +392,14 @@ def run_path_iterative(chain: Chain):
                 if _is_higher(best_path, curr_path[curr_start:], chain):
                     # New best_path
                     best_path = curr_path[curr_start:]
-                print("Full path:")
-                print_field(
-                    chain.field,
-                    highlights=[chain.id_pool[id] for id in curr_path[curr_start:]],
-                    show_ids=True
-                )
+
+                if prolix:
+                    print("Full path:")
+                    print_field(
+                        chain.field,
+                        highlights=[chain.id_pool[id] for id in curr_path[curr_start:]],
+                        show_ids=True
+                    )
             else:
                 for con in curr_el:
                     if con.dir != -origin_dir:
@@ -415,7 +428,7 @@ def follow_subpath(chain: list[Entity], main_path: list[int], group: list[Entity
     :return: Returns final group
     :rtype: list[Entity]
     """
-    print("Following subpath!")
+    # print("Following subpath!")
     ent = chain[curr_id]
 
     dir = -origin_dir
@@ -467,6 +480,7 @@ def run_chain(builder: tuple[tuple[str]] | str):
     """
     Go through the entirety of a chain field representation
     """
+    # TODO: Make it accept Path object as a builder!
     chain = Chain(builder)
     
     chain.set_main_path(run_path_iterative(chain))

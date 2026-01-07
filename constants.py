@@ -29,10 +29,15 @@ COMMENT_WILDCARD = '#'
 FALLBACK_LANG = 'en'  # Needs to be english, as it's the only complete
 DEFAULT_LANG = 'pt-br'
 EXTS = ['field']
+CONF_PATH = Path('Conf')
 
 REVERSE_STR = False
 CON_STR = ''
 PLURAL_STR = 's'
+
+# - Terminal related -
+PROLIX = False
+AUTOTEST = True
 
 # Enums would be just lovely, but alas...
 # Connections directions
@@ -105,13 +110,27 @@ CCLASSIFICATION = {}
 MAX_ITER = 21
 
 def load_constants(lang: str = ''):
-    # TODO: get default language from a separete configuration file
+    # -- Configurations file --
+    # - Conf constants -
+    global DEFAULT_LANG
+    # First check if there is such file
+    conf_file: Path = CONF_PATH / 'conf.yaml'
+
+    if not conf_file.is_file():
+        raise FileNotFoundError(f'Configuration file {conf_file} missing!')
+
+    # - Get its content -
+    with open(conf_file, 'r') as f:
+        doc = yaml.load(f, Loader=yaml.FullLoader)
+
+        DEFAULT_LANG = doc['default_language']
+
     if not lang:
         lang = DEFAULT_LANG
 
-    res_path = Path('Res')
-    file_path: Path = res_path / (lang + '.yaml')
-    fallback_file_path: Path = res_path / (FALLBACK_LANG + '.yaml')
+    # - Language resource files -
+    file_path: Path = CONF_PATH / (lang + '.yaml')
+    fallback_file_path: Path = CONF_PATH / (FALLBACK_LANG + '.yaml')
 
     # - Checks if language is available -
     # This triggers one error at a time if both the default and current laguage

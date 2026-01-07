@@ -1,4 +1,5 @@
 # TODO: Separate naming and classification into different files
+# TODO: Simplify this. It's getting a little bit out of hand to handle
 # CLassification is done in 4 steps:
 # 1. Atom by atom
 # 2. Group by group
@@ -53,10 +54,14 @@ class Classifier:
     
         self._define_subgroups()
 
-        self._get_instaturations()
-        # Collapses classification
+        self._set_instaturations() 
+        # - Collapses classification -
         # For now ignores id 1
         self._collapse_classif()
+
+        # - Enumerate chain -
+        # Sets new main_path based on grouping alphabetical order and whatnot
+
         # Resolves main class
         self._hclass = self._resolve_hclass()
         if self.get_classif(0) == 'UNRESOLVED':
@@ -150,15 +155,13 @@ class Classifier:
         for subg_id in range(1, len(self.subgroups)):
             self._root_question(subg_id)
 
-    def _get_instaturations(self):
+    def _set_instaturations(self):
         # NOTE: It finds instaturations globally not only on the main chain
+        #       And it only look carbon-carbon connections
         self.insaturations = []
         for el in self.chain:
-            self.insaturations.extend([con for con in el.cons if con > 1])
-        # for el in self.chain:
-        #     for con in el:
-        #         if con > 1:
-        #             self.insaturations[con.type].append(con)
+            sup: Chain = self.chain
+            self.insaturations.extend([con for con in el.cons if (con > 1 and self.chain.chain[con.to_id] == 'C')])
 
     # - Classification logic - 
     # (tree-like function cascade)
@@ -316,30 +319,6 @@ class Classifier:
             if has_keton:
                 return {'Keton':CLASSIFICATION['Keton']}
         return {'Hydrocarbon':CLASSIFICATION['Hydrocarbon']}
-
-    # Maybe specify on a conf file how they should be decided?
-    # def _resolve_subfunction(self) -> dict:
-    #     subfunc_prefix = ''
-    #     subfunc_infix = ''
-    #     subfunc_suffix = ''
-    #     subfunc = SUBCLASSIFICATION[self.get_hclass()]
-
-    #     if self.get_hclass() in SUBCLASSIFICATION:
-    #         # For now reads the first if a list
-    #         if isinstance(subfunc, list):
-    #             subfunc_prefix = subfunc['prefix'][0]
-    #         else:
-    #             subfunc_prefix = subfunc['prefix']
-    #     else:
-    #         subfunc_prefix = UNRESOLVED
-        
-    #     match self.get_hclass():
-    #         case 'Hydrocarbon':
-    #             subfunc_infix = _name_con_type(self.insaturations, self.chain.get_main_path_id, show_ids=False)
-        
-    #     subfunc_suffix = SUFFIXES[self.get_hclass()]
-    #     final_str = subfunc_prefix + subfunc_infix + subfunc_suffix
-    #     return final_str
             
 
 # -- Naming --
@@ -566,7 +545,11 @@ def _name_substitutive(classifier: Classifier, show_ids = True) -> str:
                         else:
                             opt_prefixes.append('fen')
                 else:
-                    opt_infixes.append(_name_con_type(classifier.get_subg_insat(curr_subg_id), show_ids=False))
+                    _opt_infix = _name_con_type(classifier.get_subg_insat(curr_subg_id), show_ids=False)
+                    if _opt_infix != 'an':
+                        opt_infixes.append(_opt_infix)
+                    else:
+                        opt_infixes.append('')
                     has_size_pref.append(True)
                     opt_prefixes.append(_get_prefix_type(_subg, classifier.chain.get_to_els, classifier.chain.get_main_path_id))
 
@@ -600,13 +583,15 @@ def _name_suffix(classific: Classifier, show_ids = True, hide_mult = False) -> s
         # Counts position
         _ids = classific.host_by_classif[main_classif]
         _main_ids = list(classific.chain.get_main_path_ids(_ids))
-    final_str += mult_prefix(_main_ids, show_ids)
+    if not hide_mult:
+        final_str += mult_prefix(_main_ids, show_ids)
     # - Functional suffix -
     final_str += SUFFIXES[classific.get_hclass()]
     return final_str
 
 
 def class_chain(chain: Chain):
+    # TODO: Add quiet option to this!
     if not chain.main_path:
         return "Chain is empty!"
 
@@ -634,7 +619,7 @@ def class_chain(chain: Chain):
     # NOTE: It doesn't discriminate between main chain instaturations or not
     #       Should be fine regardless here
     _show_infix_id = not _is_aromatic and len(_classfier.insaturations) > 2 # 2 instaturations per double connection
-    _show_suffix_id = not (_is_oxygenic and  _is_acid and _is_aromatic)
+    _show_suffix_id = not (_is_oxygenic or  _is_acid or _is_aromatic)
     _hide_mult = _is_aromatic
 
     _main_classif = _classfier.get_classif(0)
