@@ -1,33 +1,8 @@
-from copy import deepcopy
 from base_structures import *
 from auxiliary import *
-from entities import Chain, Entity, Connection
+from entities import Chain, Entity
 
 # - Runners -
-# TODO: Correct cyclical naming
-# So, if I only look through edges (if any) how do i correctly
-# define the main chain of a cyclical compound with an edge from
-# a radical? Something to do like: If detects cyclical behaviour
-# For comparision sake treat as a main chain in its own right, perhaps?
-
-# Should first selected based on: heteroatom
-# Then: Connections
-# Then: size
-# In this order!
-def _get_host(main_chain: list[Entity], ent: Entity):
-    """
-    Return the host - atom inside main path - connected to the entity
-    If it doesn't have an host, return itself
-    """
-    if ent in main_chain:
-        return ent
-    for el in main_chain:
-        if any([el.id == con.to_id for con in ent.cons]):
-            return el
-    # Returns itself if no host in main path (e.g. if "host" on subgroup)
-    return ent
-
-
 def iterate_subpaths(chain: Chain,
                      main_cyclical:bool = False,
                      prolix = PROLIX) -> list[tuple[Entity]]:
@@ -44,7 +19,7 @@ def iterate_subpaths(chain: Chain,
     subgroups = []
     for main_ent in chain.main_chain[(1 if main_cyclical else 0):]:
         for nxt_con in main_ent.cons:
-            nxt_ent = chain.chain[nxt_con.to_id]
+            nxt_ent = chain.full_chain[nxt_con.to_id]
             if (nxt_ent not in chain.main_chain):
                 _subgroup = run_subpath(chain, nxt_ent)
                 
@@ -192,7 +167,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         # 3. Closest group (careful with cyclical logic)
         # Looks to more than 3 connections to carbons
         # Note that any group should flag this, not only substitutive groups
-        if chain.to_els(curr_el.id, filter=lambda con: con.to_id not in contender):
+        if chain.from_id(curr_el.id, filter=lambda con: con.to_id not in contender):
             contender_group.append(contender.index(id))
 
     if len(best) > 1:
@@ -208,7 +183,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
         if any([con != SIMPLE for con in curr_el.cons if chain[con.to_id] == 'C']):
             best_insat += 1
         # 3. Closest group
-        if chain.to_els(curr_el.id, filter=lambda con: con.to_id not in best):
+        if chain.from_id(curr_el.id, filter=lambda con: con.to_id not in best):
             best_group.append(best.index(id))
     
     # - Comparisons -
@@ -245,7 +220,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
             contender_mock_chain = chain
             # For now changes real object (not recomended!!!)
             # Though, appears to be a copy...?
-            contender_mock_chain.set_main_path(contender)
+            contender_mock_chain.set_main_path(contender, prolix=PROLIX)
 
             contender_subgs = iterate_subpaths(contender_mock_chain, contender_cyclical)
 
@@ -277,7 +252,7 @@ def _is_higher(best: list[int], contender: list[int], chain: Chain):
 
             best_mock_chain = chain
             # Techically is a copy!
-            best_mock_chain.set_main_path(best)
+            best_mock_chain.set_main_path(best, prolix=PROLIX)
 
             best_subgs = iterate_subpaths(best_mock_chain, best_cyclical)
 
@@ -328,7 +303,7 @@ def run_path_iterative(chain: Chain, prolix=PROLIX):
     best_path: list[int] = []
 
     for start_id in chain.edges:
-        curr_el: Entity = chain.chain[start_id]
+        curr_el: Entity = chain.full_chain[start_id]
         curr_path: list[int] = [start_id]
         action_stack: list[tuple] = []
 
@@ -358,7 +333,7 @@ def run_path_iterative(chain: Chain, prolix=PROLIX):
             # (That's the only way for an heteroatom to be an edge here)
             # A little out there code though
             curr_path_id, curr_el_id, origin_dir = action_stack.pop()
-            curr_el = chain.chain[curr_el_id]
+            curr_el = chain.full_chain[curr_el_id]
 
             if prolix:
                 print_field(

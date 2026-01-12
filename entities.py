@@ -129,20 +129,18 @@ class Chain:
         # - Field -
         self.field = field
         self.n_row = len(self.field)
-        # Pre-supposing simmetry
-        self.n_col = len(self.field[0])
+        self.n_col = len(self.field[0])  # In principle the shape is constant throughout the field
         
-        # I will keep as a tuple
+        # I will keep it as a tuple
         self.id_pool: tuple[Pos] = self._make_id_pool()
 
-        # List all of paths
-        # Maybe instead of this, I could get alternatives after...
+        # List of all of paths
         # self.paths: list[int] = []
         # List of indexes for the main paths (name-definer)
         self.main_path: list[int] = []
 
         # ~ Test ~
-        self.chain: list[Entity] = []
+        self.full_chain: list[Entity] = []
         self.main_chain: list[Entity] = []
         self.groups: list[list[Entity]] = []
 
@@ -153,11 +151,11 @@ class Chain:
         self._make_chain_from_field(field)
 
         # Classification of the elements (based on number of connected carbons)
-        for el in self.chain:
-            el.classif = CCLASSIFICATION[self.to_els(el.id, el.el)]
+        for el in self.full_chain:
+            el.classif = CCLASSIFICATION[self.from_id(el.id, el.el)]
         # - Elements info -
         # Adds as element
-        for el in self.chain:
+        for el in self.full_chain:
             # Molecular formula
             self._add_element(el)
         
@@ -172,9 +170,14 @@ class Chain:
                 self.mol_formula += f"{el}" +\
                     f"\033[38;5;232m{str(num)}\033[0m"
 
-    def load_file(self, filename: str):
-        field: tuple[tuple[str]] = open_f(filename)
-        self.initiate(field)
+    def load_file(self, filepath: str):
+        content, filetype = open_f(filepath)
+        if filetype == 'field':
+            _initialize = self.initiate
+        elif filetype == 'smile':
+            _initialize = self.initiate(content)
+
+        _initialize(content)
 
     def load_chain(self, chain: list[Entity]):
         field: tuple[tuple[str]] = self._make_field(chain)
@@ -288,7 +291,7 @@ class Chain:
                 if ent_str == 'C':
                     c_count += 1
                 all_count += 1
-            self.chain.append(Entity(id_pos, el_str, cons))
+            self.full_chain.append(Entity(id_pos, el_str, cons))
 
             # If is Carbon and with one connection
             # TODO: Handle Nitrogen (Maybe treat them as 'C' if detected)
@@ -314,13 +317,14 @@ class Chain:
             else:
                 self.edges.append(0)
 
-    def set_main_path(self, main_path: list[int]):
+    def set_main_path(self, main_path: list[int], prolix = True):
         if main_path:
             self.main_path = main_path
-            print("Main chain:")
-            print_field(self.field,
-                        [self.id_pool[id] for id in self.main_path],
-                        show_ids=True)
+            if prolix:
+                print("Main chain:")
+                print_field(self.field,
+                            [self.id_pool[id] for id in self.main_path],
+                            show_ids=True)
             self.main_chain = []
         else:
             # No need to raise an error I suppose!
@@ -328,7 +332,7 @@ class Chain:
         
         # Main chain
         for pos_id in self.main_path:
-            self.main_chain.append(self.chain[pos_id])
+            self.main_chain.append(self.full_chain[pos_id])
     
     def copy(self):
         """
@@ -343,6 +347,33 @@ class Chain:
         return cchain
     
     # - Chemistry related -
+    def on_main(self, el: int | Entity):
+        if isinstance(el, int):
+            return (el in self.main_path)
+        elif isinstance(el, Entity):
+            return el in self.main_chain
+        elif isinstance(el, Connection):
+            return el.to_id in self.main_path
+
+    def get_host(self, el: int | Entity):
+        # - Checks validity -
+        if isinstance(el, int):
+            if el not in self.id_pool:
+                raise IndexError('Element id not on main chain!')
+            ent = self.main_chain[el]
+        elif isinstance(el, Entity):
+            if el not in self.full_chain:
+                raise IndexError('Entity not on chain!')    
+            ent = el
+        else:
+            raise TypeError("Entity not supported! Can't get host.")
+        # - Checks ent connection -
+        _hosts = self.get_els_from_id(ent.id, self.on_main)
+        if len(_hosts) == 1:
+            return _hosts[0]
+        else:
+            return _hosts
+
     def get_main_path_id(self, path_id: int):
         if path_id in self.main_path:
             return self.main_path.index(path_id) + 1
@@ -360,7 +391,7 @@ class Chain:
     def get_main_path_size(self):
         return len(self.main_path)
     
-    def to_els(self, id: int, el: str = '', filter= lambda e: True) -> int:
+    def from_id(self, id: int, el: str = '', filter= lambda e: True) -> int:
         """
         Docstring for to_el
         
@@ -375,13 +406,13 @@ class Chain:
         :rtype: int
         """
         if el:
-            return sum([self.chain[con.to_id].el == el for con in self.chain[id] if filter(con)])
+            return sum([self.full_chain[con.to_id].el == el for con in self.full_chain[id] if filter(con)])
         else:
-            return len([con for con in self.chain[id] if filter(con)])
+            return len([con for con in self.full_chain[id] if filter(con)])
     
     # TODO: Make this streamlined version work!
-    def get_to_els(self, id: int, filter = lambda e: True) -> list[Entity]:
-        return [self.chain[con.to_id] for con in self.chain[id] if filter(con.to_id)]
+    def get_els_from_id(self, id: int, filter = lambda e: True) -> list[Entity]:
+        return [self.full_chain[con.to_id] for con in self.full_chain[id] if filter(con.to_id)]
 
     def _add_element(self, el: Entity):
         el_str = el.el
@@ -413,4 +444,4 @@ class Chain:
     def __len__(self):
         return len(self.main_chain)
     def __getitem__(self, i: int):
-         return self.chain[i]
+         return self.full_chain[i]

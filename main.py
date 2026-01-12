@@ -15,19 +15,30 @@
 # TODO: Refactor (or add) docstring for functions!!!
 # TODO: Organize in different files and make the integration with Chain class better
 # TODO: Shy away from field!!! Using chain representation instead
-# TODO: Add config file
 # TODO: Support for functional naming (e.g. for alcohols)
 # TODO: Make rules for hyphens better!
 # TODO: Integate this file extension: https://pubchem.ncbi.nlm.nih.gov/compound/6-Ethyl-3-methylnonane#section=DSSTox-Substance-ID
+# TODO: Make it so connection directions are dynamic (for 3D support)
+
 # -- Imports --
 # from base_structures import load_constants
 # load_constants(lang = 'pt-br')  # Load constants based on language
+import sys
+import constants
+
+if len(sys.argv) > 1:
+    curr_f = sys.argv[1]
+    if curr_f.rpartition('.')[2] in constants.EXTS:
+        # For now flags the PROLIX as true in this case for ease of use
+        constants.load_constants(prolix = True)
+    else:
+        constants.load_constants()    
+else:
+    curr_f = ''
+
 from pathfinder import run_chain
 from classification import class_chain
 from entities import *
-from constants import EXTS
-
-import sys
 
 def main():
     # File handling
@@ -39,21 +50,16 @@ def main():
             default_path = arq.readline()
     else:
         print("No recent files found!")
+
+    chain_path = curr_f if '.' + curr_f.rpartition('.')[-1].lower() in EXTS else default_path
     
-    if len(sys.argv) > 1:
-        curr_f = sys.argv[1]
-    else:
-        curr_f = ''
-
-    chain_path = curr_f if curr_f.rpartition('.')[-1].lower() in EXTS else default_path
-
     # Pathfinding
     # - Autonomous test -
-    if curr_f.rpartition('.')[2] == 'field' and AUTOTEST:
+    if curr_f.rpartition('.')[2] == 'smi':
         c_main = run_chain(chain_path)
         class_chain(c_main)
         print(c_main)
-    else:
+    elif AUTOTEST:
         sample_path = Path('Sample_chains')
         total_str = []
         for f in sample_path.glob('*.field'):

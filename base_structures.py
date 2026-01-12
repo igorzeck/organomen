@@ -1,6 +1,9 @@
 from constants import *
+import warnings
+
 # -- Classes --
 class Pos:
+    # TODO: Upgrade to 3D
     """
     2D Vector coordinate
     """
@@ -13,7 +16,7 @@ class Pos:
     def __sub__(self, value):
         return Pos(self.row - value.row, self.col - value.col)
     def __mul__(self, value: int):
-        # Scalar multiplication
+        # Scalar multiplications
         return Pos(self.row * value, self.col * value)
     def __truediv__(self, value:int):
         return Pos(int(self.row / value), int(self.col / value))
@@ -26,50 +29,63 @@ class Pos:
     def __eq__(self, value):
         return (self.row == value.row and self.col == value.col)
 
-# TODO: Create temporary file with the "recent" files
+
 # -- Functions --
 # - File handling -
-def open_f(filename: str) -> tuple[tuple[str]]:
-    # Checks extension
-    _ext = filename.rpartition('.')[-1].lower()
-    if _ext not in EXTS:
-        raise TypeError(f'File extension is not valid! Supported extensions:\n{EXTS}')
+def open_f(filepath: str):
+    """
+    Handle oppening of valid filepaths
     
-    # Appends to recent files
-    # TODO: Put it on a constant and make it so it doesn't rewrite if is already
-    #       the same file! (Maybe loading to a constant the contenst beforehand?)
-    recent_files_path: Path = CONF_PATH / 'recent_files'
-    if recent_files_path.is_file():
-        # As of now it always overwrite its content!
-        with open(recent_files_path, "w") as f:
-            f.write(filename)
-    else:
-        # TODO: Maybe raising an warning?
-        print(f"'{recent_files_path}' not found!")
+    :param filepath: string with filepath
+    :type filepath: str
+    :return: returns field representation of the file as well as type of file
+    """
+    # - Check if file exists -
+    file: Path = Path(filepath)
 
+    if not file.exists():
+        raise FileExistsError(f"File '{file.name}' don't exist!")
+    
+    # - Checks extension -
+    _ext = file.suffix
+
+    if _ext not in EXTS:
+        raise TypeError(f"File extension '{_ext}' is not valid! Supported extensions:\n{EXTS}")
+
+    # - Recent files -
+    recent_files_path: Path = CONF_PATH / 'recent_files'
+    
+    if recent_files_path.is_file():
+        with open(recent_files_path, "r+") as f:
+            # See if content is the same (For now keeps one recent file)
+            if filepath not in f.readlines():
+                f.seek(0)
+                f.write(filepath)
+                f.truncate() # If size is not specified it is the IO position!
+  
+    else:
+        warnings.warn(f"'{recent_files_path}' not found!")
+    
     # Maybe a default dict with functions?
     match _ext:
-        case 'field':
-            return open_f_field(filename)
+        case '.field':
+            return _open_f_field(filepath), 'field'
+        case '.smi':
+            return _open_smile(filepath), 'smile'
         case _:
+            # Impossible to get here, to be honest
             raise TypeError(f'\'{_ext}\' is not a supported extension!')
 
 
-def open_f_field(filename: str) -> tuple[tuple[str]]:
-    """
-    Handles .field file opening
-    
-    :param nome_arq: The name of the .field to open
-    :type nome_arq: str
-    :return: A 2D matrix
-    :rtype: tuple[tuple[str]]
-    """
-    with open(filename, "r") as arq:
+def _open_f_field(filepath: Path) -> tuple[tuple[str]]:
+    with open(filepath, "r") as arq:
         field = tuple([tuple([el.upper() for el in linha.split()]) for linha in arq.readlines() if linha[0] != COMMENT_WILDCARD])
         # Upper case everything
         return field
 
 
+def _open_smile(filepath: Path):
+    pass
 # - Visual -
 # TODO: Still using field I see...
 # TODO: Change it to show on chain path instead
@@ -83,7 +99,6 @@ def print_field(field: list[list],
 
         of a given chain field
     """
-    # TODO: Make it so it can have a highlight feature for a specific coordinate
     print("")
     for i_row, row in enumerate(field):
         for i_col, el in enumerate(row):

@@ -6,9 +6,8 @@
 # 3. Host by Host (plus its groups)
 # 4. Entire chain
 # -- Imports --
-from base_structures import Pos, print_field
 from constants import *
-from pathfinder import scout, _get_host, iterate_subpaths
+from pathfinder import iterate_subpaths
 from entities import Chain, Entity, Connection
 from collections import defaultdict
 
@@ -161,7 +160,7 @@ class Classifier:
         self.insaturations = []
         for el in self.chain:
             sup: Chain = self.chain
-            self.insaturations.extend([con for con in el.cons if (con > 1 and self.chain.chain[con.to_id] == 'C')])
+            self.insaturations.extend([con for con in el.cons if (con > 1 and self.chain.full_chain[con.to_id] == 'C')])
 
     # - Classification logic - 
     # (tree-like function cascade)
@@ -200,8 +199,8 @@ class Classifier:
             for ent in self.subgroups[subg_id]:
                 if ent == 'N':
                     if len(self.subgroups[subg_id]) > 1:  # If not only one single nitrogen
-                        if (self.chain.to_els(ent.id,'O') == 2) and\
-                                (self.chain.to_els(ent.id,'C') == 1):
+                        if (self.chain.from_id(ent.id,'O') == 2) and\
+                                (self.chain.from_id(ent.id,'C') == 1):
                             self._insert_classif('Nitro', subg_id)
                         else:
                             self._insert_classif('Radical', subg_id)
@@ -217,11 +216,11 @@ class Classifier:
     def _is_oxy_2(self, subg_id: int):
         for ent in self.subgroups[subg_id]:
             if ent == 'O':
-                _host = _get_host(self.chain.main_chain, ent)
+                _host = self.chain.get_host(ent)
                 if ent != _host:
                     if any([((con.type == SIMPLE))\
                             for con in ent.cons]) and\
-                            self.chain.to_els(ent.id,'C') == 1:
+                            self.chain.from_id(ent.id,'C') == 1:
                         # print('Is an alcohol!')
                         # self.classif[subg_id] = [_host.id, 'Alcohol']
                         self._insert_classif('Alcohol', subg_id)
@@ -231,7 +230,7 @@ class Classifier:
                             for con in ent.cons]):
                         # print('Is an aldehyde!')
                         self._insert_classif('Aldehyde', subg_id)
-                    if (self.chain.to_els(ent.id,'C') == 2):
+                    if (self.chain.from_id(ent.id,'C') == 2):
                        # For now flags it if there is 2 connection to carbons
                        self._insert_classif('Ether', subg_id)
     
@@ -239,7 +238,7 @@ class Classifier:
     def _is_halide(self, subg_id: int):
         for ent in self.subgroups[subg_id]:
             if ent.el in HALIDES:
-                _host = _get_host(self.chain.main_chain, ent)
+                _host = self.chain.get_host(ent)
                 if ent != _host:
                     print(_host, end="\n\n")
                     if any([((con == SIMPLE))\
@@ -416,7 +415,7 @@ def _name_con_type(cons: list[Connection],
     return infix
 
 
-def _get_prefix_type(subg: list[Entity], get_to_el: Chain.get_to_els, get_main_id: Chain.get_main_path_id) -> str:
+def _get_prefix_type(subg: list[Entity], get_to_el: Chain.get_els_from_id, get_main_id: Chain.get_main_path_id) -> str:
     # -- Se if subgroup would have an unique name --
     # index 0 the host
     if len(subg) > 2:
@@ -551,7 +550,7 @@ def _name_substitutive(classifier: Classifier, show_ids = True) -> str:
                     else:
                         opt_infixes.append('')
                     has_size_pref.append(True)
-                    opt_prefixes.append(_get_prefix_type(_subg, classifier.chain.get_to_els, classifier.chain.get_main_path_id))
+                    opt_prefixes.append(_get_prefix_type(_subg, classifier.chain.get_els_from_id, classifier.chain.get_main_path_id))
 
             gp_radicals = __pair_func_pos(_gp_host, subgs, opt_prefixes, opt_infixes, opt_suffix=AFFIXES[gp], size_included=has_size_pref)
         if gp == 'Ether':

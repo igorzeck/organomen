@@ -1,3 +1,6 @@
 # Configuration file
 ---
 default_language: 'pt-br'
+# - Debug -
+prolix_debug: false
+autotest: true

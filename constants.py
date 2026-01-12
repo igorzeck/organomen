@@ -9,7 +9,6 @@ class FallbackDict:
     priamry dictionary 
     """
     def __init__(self, primary_dict: dict, fallback_dict: dict):
-        
         self.primary_dict: dict = primary_dict
         self.fallback_dict: dict = fallback_dict
     def __getitem__(self, key):
@@ -18,37 +17,28 @@ class FallbackDict:
         elif key in self.fallback_dict:
             return self.fallback_dict[key]
         else:
-            raise KeyError(f"{key} not in primary or default dict!")
+            raise KeyError(f"{key} not in primary nor on default dict!")
     def __repr__(self):
         return self.primary_dict
     def __str__(self):
         return self.__repr__()
+
 # -- Constants --
 # - File related -
 COMMENT_WILDCARD = '#'
-FALLBACK_LANG = 'en'  # Needs to be english, as it's the only complete
+FALLBACK_LANG = 'en'  # Needs to be english, as it's the only fully complete language
 DEFAULT_LANG = 'pt-br'
-EXTS = ['field']
+EXTS = ['.field', '.smi']
 CONF_PATH = Path('Conf')
 
+# - String building related -
 REVERSE_STR = False
 CON_STR = ''
 PLURAL_STR = 's'
 
-# - Terminal related -
-PROLIX = False
+# - Debug related -
+PROLIX = False # Shows all functions print output if set to True
 AUTOTEST = True
-
-# Enums would be just lovely, but alas...
-# Connections directions
-NORTHWEST = -4
-NORTH = -3
-NORTHEAST = -2
-WEST = -1
-EAST = 1
-SOUTHWEST = 2
-SOUTH = 3
-SOUTHEAST = 4
 
 # Connection type
 SIMPLE = 1
@@ -113,6 +103,8 @@ def load_constants(lang: str = ''):
     # -- Configurations file --
     # - Conf constants -
     global DEFAULT_LANG
+    global PROLIX
+    global AUTOTEST
     # First check if there is such file
     conf_file: Path = CONF_PATH / 'conf.yaml'
 
@@ -124,6 +116,8 @@ def load_constants(lang: str = ''):
         doc = yaml.load(f, Loader=yaml.FullLoader)
 
         DEFAULT_LANG = doc['default_language']
+        PROLIX = doc['prolix_debug']
+        AUTOTEST = doc['autotest']
 
     if not lang:
         lang = DEFAULT_LANG
@@ -202,5 +196,5 @@ def load_constants(lang: str = ''):
     # SUBCLASSIFICATION = res['subclassification']
     CCLASSIFICATION = res['carbon_classification']
 
-# By defautl run
+# For now, loads it here
 load_constants()
