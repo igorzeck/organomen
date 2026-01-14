@@ -3,6 +3,7 @@
 from base_structures import Pos, print_field, open_f, CD_OFFS
 from constants import *
 from auxiliary import *
+from collections import defaultdict
 
 # - Connection -
 class Connection:
@@ -45,14 +46,16 @@ class Connection:
 # - (Chemical) Entity -
 class Entity:
     # - Class Related -
-    def __init__(self, ent_id: int, el: str, cons: list[Connection]):
+    # NOTE: cons can be defaulted to '[]' as it may cause all instances
+    #       to reference the same default list
+    def __init__(self, ent_id: int, el: str, cons: list[Connection] = None):
         # ~ Pos ~
         # self.pos: Pos = pos
         
         # Id
         self.id = ent_id
-        self.el = el
-        self.cons = cons
+        self.el = el  # TODO: Should check if is valid element!
+        self.cons = cons if cons else []
 
         # Classification
         # (Relative to number of carbons connected to it)
@@ -72,6 +75,18 @@ class Entity:
                 return con.to_id
         # Not found
         return -1
+    def connect(ent_from, ent_to, con_type, dir: int = 0):
+        # This function modify both the caller and the one of the parameters...
+        # TODO: Maybe should be a class function!
+        # NOTE: Parameters from the perspective of the caller!
+        # TODO: Change to be based on element maximum connections
+        if len(ent_from) < 4 and len(ent_to) < 4:
+            # TODO: Connection function that mirrors input?
+            self_to_ent = Connection(ent_from.id, ent_to.id, dir, con_type)
+            ent_to_self = Connection(ent_to.id, ent_from.id, -dir, con_type)
+
+            ent_from.cons.append(self_to_ent)
+            ent_to.cons.append(ent_to_self)
     # - Chemistry -
     def is_hetero(self) -> bool:
         return self.el in HETEROATOMS
@@ -173,11 +188,10 @@ class Chain:
     def load_file(self, filepath: str):
         content, filetype = open_f(filepath)
         if filetype == 'field':
-            _initialize = self.initiate
+            self.initiate(content)
         elif filetype == 'smile':
-            _initialize = self.initiate(content)
-
-        _initialize(content)
+            ents: list[Entity] = parse_smile(content)
+            self.load_chain(ents)
 
     def load_chain(self, chain: list[Entity]):
         field: tuple[tuple[str]] = self._make_field(chain)
@@ -445,3 +459,112 @@ class Chain:
         return len(self.main_chain)
     def __getitem__(self, i: int):
          return self.full_chain[i]
+
+# -- Smile --
+def _tokenize_smile(smile_str: str) -> list[str]:
+    # Using the Wikpedia specification: https://en.wikipedia.org/wiki/Simplified_Molecular_Input_Line_Entry_System
+    # TBH would be easier to have made an organic subset here... But, oh well...
+    # TODO: Elements Table
+    # NOTE: Rings are indicated by possibly repeating numbers (if previous number non used)
+    #   and 
+    # NOTE: I'm representing aromatic bonding using Kekulé notation always
+    brackets_symbs = ['[',']']
+    # Maybe a single string in order?
+    charge_symbs = ['-', '+']  # If on brackets '-' means charge not bonding!
+    bonds_symbs = ['.','-','=', '#', '$', ':', '/', '\\']
+    branches_symbs = ['(',')']
+
+    aromatics = ['b', 'c', 'n', 'o', 'p', 's']
+    
+    atoms_dict = defaultdict(int)
+
+    curr_sub = ''
+
+    tokens = []
+    i_start = 0
+    i_end = 0
+    # NOTE: Strictly speaking this only support 2 letter elements!
+    # TODO: I think I can do betters
+    # TODO: Cobalt would be wrongly flagged as an element if we have something like 'Cocc' for example!
+    for curr_i, curr_c in enumerate(smile_str):
+        # To see if another element is next
+        nxt_c = smile_str[curr_i + 1] if curr_i + 1 < len(smile_str) else ''
+
+        nxt_is_el = (nxt_c.isupper()) or\
+              (nxt_c in aromatics and ((curr_c  + nxt_c).upper() not in HETEROATOMS)) or\
+              (not nxt_c)  # Last char
+        
+        curr_is_el = not nxt_is_el and curr_c.isupper() and ((curr_c + nxt_c).upper() not in HETEROATOMS)
+        
+        break_cond = (curr_c in brackets_symbs) or\
+            (curr_c in bonds_symbs) or\
+            (curr_c in branches_symbs) or\
+            (curr_c.isnumeric()) or\
+            (curr_c in charge_symbs)
+
+        i_end += 1
+
+        if (curr_c.islower() or break_cond or nxt_is_el or curr_is_el):
+            # Also in case it is representative of an aromatic bonding
+            curr_sub = smile_str[i_start:i_end]
+            tokens.append(curr_sub)
+            i_start = i_end
+            if curr_sub.isalpha():
+                curr_sub = curr_sub.upper()
+                atoms_dict[curr_sub] += 1
+                curr_sub = ''
+    print(tokens)
+    return tokens
+
+
+def _enititify_smile(tokens: list[str]) -> list[Entity]:
+    # Maybe se as constants?
+    # TODO: Support for chirality
+    bonds_symbs = {'.': 1,'-': 1,'=': 2, '#': 3, '$': 4, ':': 1/2, '/': -1, '\\': -2}
+    branch_in = '('
+    branch_off = ')'
+
+    ent_stack: list[Entity] = []
+    ent_list: list[Entity] = []
+    ent_from = None
+
+    curr_id = 0
+    curr_type = 1
+    branching = False
+
+    for s in tokens:
+        curr_s = s.upper()
+        new_ent: Entity = None
+        # Appends to the stack if it's an entity
+        if curr_s.isalpha() and curr_s != 'H':
+            new_ent = Entity(curr_id, curr_s.upper())
+            ent_list.append(new_ent)
+            curr_id += 1
+
+            if ent_stack:
+                # Connect them both
+                old_ent = ent_stack.pop()
+                # Maybe a function to connect them both?
+                new_ent.connect(old_ent, curr_type)
+                print(old_ent, curr_type, new_ent)
+
+                curr_type = 1
+            ent_stack.append(new_ent)
+            
+        # elif s.isnumeric():
+        elif curr_s in bonds_symbs:
+            # Connection
+            curr_type = bonds_symbs[curr_s]
+        elif curr_s == branch_in:
+            branching = True
+    
+    exit(0)
+
+
+
+# For ease of use it will be here for now
+def parse_smile(smile_str: str) -> list[Entity]:
+    # 1. Identification and creation of atoms
+    # Get list of non connected entities
+    ents: list[Entity] = _enititify_smile(_tokenize_smile(smile_str))
+    exit(0)

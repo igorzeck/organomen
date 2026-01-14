@@ -30,15 +30,22 @@ afixes:
   Benzene: benz
   Naftalene: naftal
   Antracene: antrac
-heteroatoms:
-  halides:
-    F: Fluor  # No accent as it will be part of a compounding word!
-    CL: Cloro
-    BR: Bromo
-    I: Iodo
+elements:
+  organic_subset:
+    C: Carbono
+    halides:
+      F: Fluor  # No accent as it will be part of a compounding word!
+      CL: Cloro
+      BR: Bromo
+      I: Iodo
+    others:
+      O: Oxigênio
+      N: Nitrogênio
+      S: Enxofre
+      P: Fósforo
+      B: Boro
   others:
-    O: Oxigênio
-    N: Nitrogênio
+    H: Hidrogênio
 classifcation:
   # Higher classes
   Nitrogênico: Nitrogênico

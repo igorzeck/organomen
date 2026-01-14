@@ -89,6 +89,7 @@ INFIXES = []
 MULT_PREFS = []
 AFFIXES = {}
 
+ORGANIC_SUBSET = {}
 HALIDES = {}
 HETEROATOMS = {}
 
@@ -145,6 +146,7 @@ def load_constants(lang: str = ''):
     global INFIXES
     global MULT_PREFS
     global AFFIXES
+    global ORGANIC_SUBSET
     global HALIDES
     global HETEROATOMS
     global CLASSIFICATION
@@ -179,7 +181,7 @@ def load_constants(lang: str = ''):
     CON_STR = res['conective_str']
 
     UNRESOLVED = res['unresolved_str']
-    UNRESOLVED = res['undefined_str']
+    UNDEF = res['undefined_str']
 
     # Merge of dictionaries ( Python >= 3.9.0 )
     SUFFIXES = res['suffixes'] | {UNRESOLVED:'NONE'}
@@ -187,10 +189,16 @@ def load_constants(lang: str = ''):
     MULT_PREFS = res['multiplier_prefixes']
     AFFIXES = res['afixes']
 
-    HALIDES = res['heteroatoms']['halides']
-    HETEROATOMS = {}
-    for htype in res['heteroatoms']:
-        HETEROATOMS |= res['heteroatoms'][htype]
+    ORGANIC_SUBSET['C'] = res['elements']['organic_subset']['C']
+    HALIDES = res['elements']['organic_subset']['halides']
+
+    for etype in res['elements']:
+        for subtype in res['elements'][etype]:
+            if subtype == 'C' or  subtype == 'H':
+                continue
+            if etype == 'organic_subset':
+                ORGANIC_SUBSET |= res['elements'][etype][subtype]
+            HETEROATOMS |= res['elements'][etype][subtype]
 
     CLASSIFICATION = res['classifcation']
     # SUBCLASSIFICATION = res['subclassification']

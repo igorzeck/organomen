@@ -71,6 +71,7 @@ def open_f(filepath: str):
         case '.field':
             return _open_f_field(filepath), 'field'
         case '.smi':
+            # Reading as a single string here, perhaps?
             return _open_smile(filepath), 'smile'
         case _:
             # Impossible to get here, to be honest
@@ -85,7 +86,15 @@ def _open_f_field(filepath: Path) -> tuple[tuple[str]]:
 
 
 def _open_smile(filepath: Path):
-    pass
+    # - Opening of the file - 
+    smile_str = ''
+    with open(filepath, 'r') as f:
+        # Assumes 1 single line
+        smile_str = f.readline()
+    
+    if not smile_str:
+        warnings.warn('Empty file')
+    return smile_str
 # - Visual -
 # TODO: Still using field I see...
 # TODO: Change it to show on chain path instead

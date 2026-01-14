@@ -35,15 +35,24 @@ afixes:
   Benzene: benz
   Naftalene: naftal
   Antracene: antrac
-heteroatoms:
-  halides:
-    F: Fluorine
-    CL: Clhorine
-    BR: Bromine
-    I: Iodine
+elements:
+  # All caps for ease of comparison
+  # NOTE: This may cause problems during certains formulas parsig
+  organic_subset:
+    C: Carbon
+    halides:
+      F: Fluorine
+      CL: Clhorine
+      BR: Bromine
+      I: Iodine
+    others:
+      O: Oxygen
+      N: Nitrogen
+      S: Sulfur?
+      P: Phospate?
+      B: Boro?
   others:
-    O: Oxygen
-    N: Nitrogen
+    H: Hydrogen
 classifcation:
   # - Higher classes -
   Nitrogenic: Nitrogenic

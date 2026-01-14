@@ -8,6 +8,7 @@
 # of paths, which in turn define how
 # the chain is named
 
+# TODO: Put some halides through the testing!
 # TODO: the current way I'm flaggin main chain don't support single "bridges" between cycles!
 # TODO: Function that makes ordering of electrons orbital using octate rule so that I can have connection numbers per element!
 # TODO: Flag type of amine and type of alcohol
@@ -55,7 +56,7 @@ def main():
     
     # Pathfinding
     # - Autonomous test -
-    if curr_f.rpartition('.')[2] == 'smi':
+    if curr_f.rpartition('.')[2] == 'smi' or chain_path.rpartition('.')[2] == 'smi':
         c_main = run_chain(chain_path)
         class_chain(c_main)
         print(c_main)
