@@ -7,7 +7,7 @@ class Pos:
     """
     2D Vector coordinate
     """
-    def __init__(self, row, col):
+    def __init__(self, row: int = 0, col: int = 0):
         self.row = row
         self.col = col
     # Math
@@ -29,6 +29,45 @@ class Pos:
     def __eq__(self, value):
         return (self.row == value.row and self.col == value.col)
 
+
+class Pos3D:
+        # TODO: Upgrade to 3D
+    """
+    3D Vector coordinate - Initializes to origin
+    """
+    # NOTE: For now is 2D too!
+    # TODO: Make it 3D!
+    def __init__(self, x: float = 0.0, y: float = 0.0):
+        self.x = x
+        self.y = y
+    # Math
+    def __add__(self, value):
+        return Pos3D(self.x + value.x, self.y + value.y)
+    def __sub__(self, value):
+        return Pos3D(self.x - value.x, self.y - value.y)
+    def __mul__(self, value: int):
+        # Scalar multiplications
+        return Pos3D(self.x * value, self.y * value)
+    def __truediv__(self, value):
+        if isinstance(value, (int, float)):
+            return Pos3D(self.x / value, self.y / value)
+        elif isinstance(value, Pos3D):
+            return Pos3D(self.x / value.x, self.y / value.y)
+    def __pow__(self, value):
+        return Pos3D(self.x ** value, self.y ** value)
+    # Representations
+    def __str__(self):
+        return f"({self.x}; {self.y})"
+    def __repr__(self):
+        return self.__str__()
+    def __iter__(self):
+        for p in (self.x, self.y):
+            yield p
+    # Relationals
+    def __eq__(self, value):
+        # Float comparison though, should be implemented!
+        return (self.x == value.x and self.y == value.y)
+    
 
 # -- Functions --
 # - File handling -

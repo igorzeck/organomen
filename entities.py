@@ -1,18 +1,24 @@
 # TODO: Entity object with iter overload so you can get its connections
 # TODO: Make an field with id instead of elements and maybe negative for connections
-from base_structures import Pos, print_field, open_f, CD_OFFS
+from base_structures import Pos, print_field, open_f, CD_OFFS, Pos3D
 from constants import *
 from auxiliary import *
 from collections import defaultdict
+import math
 
 # - Connection -
 class Connection:
     # - Class related -
-    def __init__(self, id_from: int, id_to: int, dir: int, type: int):
+    def __init__(self, id_from: int, id_to: int, type: int, dir: int = 0):
         self.from_id = id_from
         self.to_id = id_to
-        self.dir = dir
         self.type = type
+
+        # TODO: Phase out direction
+        self._dir = dir
+    # - Auxiliary -
+    def mirror(self):
+        return Connection(id_to=self.to_id, id_from=self.from_id, type=self.type, dir=-self._dir)
     # - Features -
     def __eq__(self, value):
         if isinstance(value, Connection):
@@ -20,12 +26,14 @@ class Connection:
             return (
                 (self.from_id == value.from_id) and
                 (self.to_id == value.to_id) and
-                (self.dir == value.dir) and
-                (self.type == value.type)
+                (self.type == value.type) and
+                (self._dir == value._dir)
             )
         elif isinstance(value, int):
             # Checks type of connection
             return self.type == value
+    def __neg__(self):
+        return self.mirror()
     def __lt__(self, value):
         if isinstance(value, int):
             return self.type < value
@@ -39,9 +47,10 @@ class Connection:
         if isinstance(value, int):
             return self.type >= value
     def __str__(self):
-        return f'(From: {self.from_id}, To: {self.to_id}, Dir: {self.dir}, Type: {self.type})'
+        return f'(From: {self.from_id}, To: {self.to_id}, Type: {self.type}, Dir: {self._dir})'
     def __repr__(self):
         return self.__str__()
+        return f'({self.from_id}{'.' * self.type}{self.to_id})'
 
 # - (Chemical) Entity -
 class Entity:
@@ -60,21 +69,7 @@ class Entity:
         # Classification
         # (Relative to number of carbons connected to it)
         self.classif = ''
-    
-    def at_dir(self, dir_to: int):
-        """
-        Finds id (if any) to direction being compared
-        
-        :param dir_from: Direction of comparison
 
-        Returns id if found or -1 if not
-        """
-        for con in self:
-            if con.dir == dir_to:
-                # Found
-                return con.to_id
-        # Not found
-        return -1
     def connect(ent_from, ent_to, con_type, dir: int = 0):
         # This function modify both the caller and the one of the parameters...
         # TODO: Maybe should be a class function!
@@ -82,11 +77,17 @@ class Entity:
         # TODO: Change to be based on element maximum connections
         if len(ent_from) < 4 and len(ent_to) < 4:
             # TODO: Connection function that mirrors input?
-            self_to_ent = Connection(ent_from.id, ent_to.id, dir, con_type)
-            ent_to_self = Connection(ent_to.id, ent_from.id, -dir, con_type)
+            self_to_ent = Connection(ent_from.id, ent_to.id, con_type, dir)
+            ent_to_self = Connection(ent_to.id, ent_from.id, con_type, -dir)
 
             ent_from.cons.append(self_to_ent)
             ent_to.cons.append(ent_to_self)
+    def is_connected(self, value):
+        for self_con in self:
+            for value_con in value:
+                if self_con == -value_con:
+                    return True
+        return False
     # - Chemistry -
     def is_hetero(self) -> bool:
         return self.el in HETEROATOMS
@@ -249,7 +250,6 @@ class Chain:
                 coords.append(curr_pos)
                 els.append(curr_type)
 
-                # Only if the is curr_type
                 curr_pos += CD_OFFS[curr_dir]
 
                 # Atom
@@ -258,10 +258,10 @@ class Chain:
 
             # Adds next step(s) to action stack
             for con in curr_entity:
-                if con.dir != -curr_dir:
+                if con._dir != -curr_dir:
                     action_stack.append((curr_entity.id,
                                          chain[con.to_id],
-                                         con.dir,
+                                         con._dir,
                                          curr_pos,
                                          con.type))
 
@@ -276,6 +276,7 @@ class Chain:
 
         field = [['0' for _ in range(min_col, max_col + 1)] for _ in range(min_row, max_row + 1)]
 
+        # TODO: Fix this so is right side up!
         for row in range(min_row, max_row + 1):
             for col in range(min_col, max_col + 1):
                 curr_pos = Pos(row, col)
@@ -301,7 +302,7 @@ class Chain:
                 nxt_id, dir, type, ent_str = raw_con
                 if (type > 1) and (ent_str == 'C'):
                     _insasts.add(id_pos)
-                cons.append(Connection(id_pos, nxt_id, dir, type))
+                cons.append(Connection(id_pos, nxt_id, type=type, dir=dir))
                 if ent_str == 'C':
                     c_count += 1
                 all_count += 1
@@ -383,6 +384,10 @@ class Chain:
             raise TypeError("Entity not supported! Can't get host.")
         # - Checks ent connection -
         _hosts = self.get_els_from_id(ent.id, self.on_main)
+        # For now if empty assumes host is index 0
+        # TODO: Fix this logic to find closest host
+        if not _hosts:
+            _hosts = [self.main_chain[0]]
         if len(_hosts) == 1:
             return _hosts[0]
         else:
@@ -453,7 +458,6 @@ class Chain:
         return summary
     def __repr__(self):
         return self.__str__()
-    
     # - Functionalities -
     def __len__(self):
         return len(self.main_chain)
@@ -557,14 +561,101 @@ def _enititify_smile(tokens: list[str]) -> list[Entity]:
             curr_type = bonds_symbs[curr_s]
         elif curr_s == branch_in:
             branching = True
-    
-    exit(0)
+    return ent_list
 
+
+def ent_to_field(ents: list[Entity]):
+    print(ents)
+    # 1. Put all entities on a 2D Plane, at the same coordinates (origin)
+    # 2. Calculate two forces (for elements with connections): Repulsion (if distance less thatn sqrt(2) and attraction if greater)
+    #    if they aren't connected is always repulsive if greater than sqrt(1)
+    #    NOTE: dist as sqrt(2) is equivalente to the distance vectr (1,1)
+    # 3. Sums up forces applied by all particles to the current coordinate
+    # 4. Apply force stepwise assuming "0.1 time unity" per step
+    #    using the formula: d = F * timestep / 2
+    # 5. For now, defines their direction based on their relative distance
+    coords: list[Pos3D] = [Pos3D()] * len(ents)
+    coords_ents = tuple(zip(coords, ents))
+    timestep = 0.1
+    
+    for sim_step in range(2):
+        result_forces: list[Pos3D] = [Pos3D()] * len(ents)
+        result_dists: list[Pos3D] = [Pos3D()] * len(ents)
+        for curr_i, pack_u in enumerate(coords_ents):
+            coord_u, ent_u = pack_u
+            # W/ curr_i to avoid duplicate calculations
+            for coord_i, ent_i in coords_ents[curr_i:]:
+                # Dual point comparison
+                # Formula for force: F = K * (p_a, p_b) / d²
+                # K = p_a = p_b = 1 for now
+                # W/ +/- K depending if is closer/farther than sqrt(2) from point!
+                _dist: Pos3D = coord_i - coord_u
+
+                # - Clamps distance -
+                if _dist.x >= 0:
+                    _dist.x = min(max(_dist.x, 0.1), 1e4)
+                else:
+                    _dist.x = min(max(_dist.x, -1e4), -0.1)
+                
+                if _dist.y >= 0:
+                    _dist.y = min(max(_dist.y, 0.1), 1e4)
+                else:
+                    _dist.y = min(max(_dist.y, -1e4), -0.1)
+                
+                _k = Pos3D()
+                _con_attraction = 0 if ent_u.is_connected(ent_i) else 1
+
+                if abs(_dist.x) <= 1:
+                    _k.x = 1 # Repulsion
+                else:
+                    _k.x = -1 * _con_attraction # Atraction
+
+                if abs(_dist.y) <= 1:
+                    _k.y = 1 # Repulsion
+                else:
+                    _k.y = -1 * _con_attraction # Atraction
+                
+                _force = _k * timestep / _dist**2
+                result_forces[curr_i] += _force
+        result_dists = [(_f * timestep) / 2 for _f in result_forces]
+        
+        # Apply them:
+        for i, dists in enumerate(result_dists):
+            coords[i] += dists
+    # Rounds them (implicitly)
+    coords_round = [Pos(int(coord.x), int(coord.y)) for coord in coords]
+
+    # Gets direction from connections
+    for ent in ents:
+        for i_con, _con in enumerate(ent):
+            _dir_coord = coords_round[_con.to_id] - coords_round[_con.from_id]
+            # Below I can have values going from -1, 0, 1
+            _dir = Pos()
+            if _dir_coord.row == 0:
+                _dir.row = 0
+            else:
+                _dir.row = _dir_coord.row / abs(_dir_coord.row)
+            
+            if _dir_coord.col == 0:
+                _dir.col = 0
+            else:
+                _dir.col = _dir_coord.col / abs(_dir_coord.col)
+            
+            _dir_i = 0
+            for offs in CD_OFFS:
+                if CD_OFFS[offs] == _dir_coord:
+                    _dir_i = offs
+            ent.cons[i_con]._dir = _dir_i
+        print("Cons:", ent.cons)
+    print(coords)
+    print(tuple(zip(ents, coords_round)))
+    return ents
 
 
 # For ease of use it will be here for now
 def parse_smile(smile_str: str) -> list[Entity]:
     # 1. Identification and creation of atoms
     # Get list of non connected entities
-    ents: list[Entity] = _enititify_smile(_tokenize_smile(smile_str))
-    exit(0)
+    # NOTE: TEMPORARY FOR TESTING ONLY
+    ents: list[Entity] = ent_to_field(_enititify_smile(_tokenize_smile(smile_str)))
+    return ents

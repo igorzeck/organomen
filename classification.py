@@ -408,7 +408,7 @@ def _name_con_type(cons: list[Connection],
             infix += mult_prefix(cons_from, show_ids = show_ids)
     # Addition of type name
     for type in cons_dict:
-        if type < len(INFIXES) - 1:
+        if type <= len(INFIXES) - 1:
             infix += INFIXES[type]
         else:
             infix += UNDEF

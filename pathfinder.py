@@ -321,9 +321,9 @@ def run_path_iterative(chain: Chain, prolix=PROLIX):
         if curr_el == "N":
             best_path = curr_path
         else:
-            # Appends initial direction on action stack
+            # Appends initial info on action stack
             for con in curr_el:
-                action_stack.append((len(curr_path), con.to_id, con.dir))
+                action_stack.append((len(curr_path), con.to_id, con.from_id))
 
         # Follows action_stack
         while action_stack:
@@ -332,7 +332,7 @@ def run_path_iterative(chain: Chain, prolix=PROLIX):
             # If it's an nitrogen edge, it MUST be a amine
             # (That's the only way for an heteroatom to be an edge here)
             # A little out there code though
-            curr_path_id, curr_el_id, origin_dir = action_stack.pop()
+            curr_path_id, curr_el_id, origin_id = action_stack.pop()
             curr_el = chain.full_chain[curr_el_id]
 
             if prolix:
@@ -377,76 +377,12 @@ def run_path_iterative(chain: Chain, prolix=PROLIX):
                     )
             else:
                 for con in curr_el:
-                    if con.dir != -origin_dir:
-                        action_stack.append((len(curr_path), con.to_id, con.dir))
+                    if con.to_id != origin_id:
+                        action_stack.append((len(curr_path), con.to_id, con.from_id))
             eop = False
 
 
     return best_path
-
-
-# TODO: Generalize as the main pathfinder?
-def follow_subpath(chain: list[Entity], main_path: list[int], group: list[Entity], origin_dir: int, curr_id: int, cont: int = 0):
-    """
-    Follow subpath recursively (at each junction) until
-    all entities outside of main_path are in a group
-    
-    :param chain: Chain with all entities
-    :type chain: list[Entity]
-    :param main_path: Main chain path (acts as mask to keep on group)
-    :type main_path: list[int]
-    :param group: Group of unique entities on this. Needs to be 
-    inserted initally as a empty list for safe-copy reasons
-    :type group: list[Entity]
-    :param dir: Origin direction (forbidden on first iteration)
-    :type dir: int
-    :return: Returns final group
-    :rtype: list[Entity]
-    """
-    # print("Following subpath!")
-    ent = chain[curr_id]
-
-    dir = -origin_dir
-
-    _cycled = ent in group
-    _back_at_main = ent in main_path
-
-    while not _cycled and not _back_at_main:
-        # Failsafe
-        cont += 1
-        if cont >= MAX_ITER:
-            break
-
-        group.append(ent)
-
-        # - Advance -
-        if len(ent) == 2:
-            # If there is two directions, go to the not-origin direction
-            for con in ent:
-                if con.dir != dir:
-                    to_id = ent.at_dir(con.dir)
-                    dir = -con.dir
-        elif len(ent) > 2:
-            # Recursion for the conjunction
-            for con in ent:
-                if con.dir != dir:
-                    new_ent_id = ent.at_dir(con.dir)
-                    group = follow_subpath(chain, main_path, group, con.dir, new_ent_id, cont)
-            break
-        elif len(ent) <= 1:
-            # End of path
-            break
-
-        # - Additional finishing conditions -
-        # Id not in chain (-1)
-        if to_id >= 0:
-            ent = chain[to_id]
-        else:
-            break
-
-        _cycled = ent in group
-        _back_at_main = ent in main_path
-    return group
 
 
 # TODO: Insert chain as a parameter
