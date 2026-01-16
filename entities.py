@@ -590,10 +590,13 @@ def ent_to_field(ents: list[Entity]):
     #     coords.append(Pos3D(row * 2, curr_col))
     
     # coords = [Pos3D(rand.random() * len(ents) * 3, rand.random() * len(ents) * 3) for _ in range(len(ents))]
-    coords = [Pos3D(i,rand.random() * 2 - 1) for i in range(len(ents))]
+    coords = [Pos3D((rand.random() - 2) *  1, i) for i in range(len(ents))] # Adds random jitter in one direction
+    # coords = [Pos3D(rand.random() * 10 - 20,rand.random() * 10 - 20) for i in range(len(ents))]
+    # coords = [Pos3D()] * len(ents)
     coords_ents = tuple(zip(coords, ents))
     timestep = 0.1
-    sqrt2 = math.sqrt(2)
+    # min_con_len = math.sqrt(2)
+    min_con_len = 1
 
     for sim_step in range(5):
         result_forces: list[Pos3D] = [Pos3D()] * len(ents)
@@ -612,16 +615,15 @@ def ent_to_field(ents: list[Entity]):
                 _k = Pos3D(0,0)
                 # The force is the _dist vectors
                 if ent_u.is_connected(ent_i):
-                    if _dist.length() <= sqrt2:
+                    if _dist.length() <= min_con_len:
                         _k = Pos3D(-1,-1) # Repulsion
                     else:
                         _k = Pos3D(1,1) # Attraction
-                elif _dist.length() <= sqrt2:
+                elif _dist.length() <= min_con_len:
                     _k = Pos3D(-1.2,-1.2) # Repulsion (a little tronger to discourage clamping)
                 
-                # - Clamps distance -
-                # jitter = Pos3D(rand.random() * 2 - 4, rand.random() * 2 - 4)
-                _force = (_k * timestep / (_dist ** 2) )
+                _force = (_k * timestep / (_dist ** 2))
+
                 result_forces[curr_index] += _force
         result_dists = [(_f * timestep) / 2 for _f in result_forces]
         
