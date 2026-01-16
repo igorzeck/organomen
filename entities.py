@@ -5,6 +5,7 @@ from constants import *
 from auxiliary import *
 from collections import defaultdict
 import math
+import random as rand
 
 # - Connection -
 class Connection:
@@ -566,63 +567,70 @@ def _enititify_smile(tokens: list[str]) -> list[Entity]:
 
 def ent_to_field(ents: list[Entity]):
     print(ents)
-    # 1. Put all entities on a 2D Plane, at the same coordinates (origin)
+    # 1. Put all entities on a 2D Plane, at a square formation
     # 2. Calculate two forces (for elements with connections): Repulsion (if distance less thatn sqrt(2) and attraction if greater)
     #    if they aren't connected is always repulsive if greater than sqrt(1)
-    #    NOTE: dist as sqrt(2) is equivalente to the distance vectr (1,1)
+    #    NOTE: dist as sqrt(2) is equivalent to the distance vector (1,1)
     # 3. Sums up forces applied by all particles to the current coordinate
     # 4. Apply force stepwise assuming "0.1 time unity" per step
     #    using the formula: d = F * timestep / 2
     # 5. For now, defines their direction based on their relative distance
-    coords: list[Pos3D] = [Pos3D()] * len(ents)
+    coords: list[Pos3D] = []
+    rand.seed(42)
+    
+    # For now hardcoded
+    # NOTE: Random positions to avoid cramping
+    # NOT A PERFECT SOLUTION THOUGH!!!
+    # avail_row = rand.sample(range(0,len(ents) * 4), k = len(ents))
+    # avail_col = rand.sample(range(0,len(ents) * 4), k = len(ents))
+    
+    # coords: list[Pos3D] = [Pos3D()]
+    # for row in range(len(ents)):
+    #     curr_col = rand.random() * 20 - 1  # Random jitter
+    #     coords.append(Pos3D(row * 2, curr_col))
+    
+    # coords = [Pos3D(rand.random() * len(ents) * 3, rand.random() * len(ents) * 3) for _ in range(len(ents))]
+    coords = [Pos3D(i,rand.random() * 2 - 1) for i in range(len(ents))]
     coords_ents = tuple(zip(coords, ents))
     timestep = 0.1
-    
-    for sim_step in range(2):
+    sqrt2 = math.sqrt(2)
+
+    for sim_step in range(5):
         result_forces: list[Pos3D] = [Pos3D()] * len(ents)
         result_dists: list[Pos3D] = [Pos3D()] * len(ents)
-        for curr_i, pack_u in enumerate(coords_ents):
+        for curr_index, pack_u in enumerate(coords_ents):
             coord_u, ent_u = pack_u
-            # W/ curr_i to avoid duplicate calculations
-            for coord_i, ent_i in coords_ents[curr_i:]:
+            # W/ curr_i it should applyt force both ways
+            # For now, to follow Newtons third law I'm allowing it to run completely!
+            for coord_i, ent_i in coords_ents:
                 # Dual point comparison
                 # Formula for force: F = K * (p_a, p_b) / d²
                 # K = p_a = p_b = 1 for now
                 # W/ +/- K depending if is closer/farther than sqrt(2) from point!
                 _dist: Pos3D = coord_i - coord_u
-
+                
+                _k = Pos3D(0,0)
+                # The force is the _dist vectors
+                if ent_u.is_connected(ent_i):
+                    if _dist.length() <= sqrt2:
+                        _k = Pos3D(-1,-1) # Repulsion
+                    else:
+                        _k = Pos3D(1,1) # Attraction
+                elif _dist.length() <= sqrt2:
+                    _k = Pos3D(-1.2,-1.2) # Repulsion (a little tronger to discourage clamping)
+                
                 # - Clamps distance -
-                if _dist.x >= 0:
-                    _dist.x = min(max(_dist.x, 0.1), 1e4)
-                else:
-                    _dist.x = min(max(_dist.x, -1e4), -0.1)
-                
-                if _dist.y >= 0:
-                    _dist.y = min(max(_dist.y, 0.1), 1e4)
-                else:
-                    _dist.y = min(max(_dist.y, -1e4), -0.1)
-                
-                _k = Pos3D()
-                _con_attraction = 0 if ent_u.is_connected(ent_i) else 1
-
-                if abs(_dist.x) <= 1:
-                    _k.x = 1 # Repulsion
-                else:
-                    _k.x = -1 * _con_attraction # Atraction
-
-                if abs(_dist.y) <= 1:
-                    _k.y = 1 # Repulsion
-                else:
-                    _k.y = -1 * _con_attraction # Atraction
-                
-                _force = _k * timestep / _dist**2
-                result_forces[curr_i] += _force
+                # jitter = Pos3D(rand.random() * 2 - 4, rand.random() * 2 - 4)
+                _force = (_k * timestep / (_dist ** 2) )
+                result_forces[curr_index] += _force
         result_dists = [(_f * timestep) / 2 for _f in result_forces]
         
         # Apply them:
         for i, dists in enumerate(result_dists):
             coords[i] += dists
+        coords_ents = tuple(zip(coords, ents))
     # Rounds them (implicitly)
+    # Could be ignored thouht!
     coords_round = [Pos(int(coord.x), int(coord.y)) for coord in coords]
 
     # Gets direction from connections
@@ -643,10 +651,10 @@ def ent_to_field(ents: list[Entity]):
             
             _dir_i = 0
             for offs in CD_OFFS:
-                if CD_OFFS[offs] == _dir_coord:
+                if CD_OFFS[offs] == _dir:
                     _dir_i = offs
             ent.cons[i_con]._dir = _dir_i
-        print("Cons:", ent.cons)
+        print(f"{ent} -> Cons:", ent.cons)
     print(coords)
     print(tuple(zip(ents, coords_round)))
     return ents

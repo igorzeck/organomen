@@ -1,4 +1,5 @@
 from constants import *
+from math import sqrt
 import warnings
 
 # -- Classes --
@@ -40,19 +41,29 @@ class Pos3D:
     def __init__(self, x: float = 0.0, y: float = 0.0):
         self.x = x
         self.y = y
+    # Vectorial
+    def length(self):
+        return sqrt(self.x ** 2 + self.y ** 2)
     # Math
     def __add__(self, value):
         return Pos3D(self.x + value.x, self.y + value.y)
     def __sub__(self, value):
         return Pos3D(self.x - value.x, self.y - value.y)
-    def __mul__(self, value: int):
-        # Scalar multiplications
-        return Pos3D(self.x * value, self.y * value)
-    def __truediv__(self, value):
-        if isinstance(value, (int, float)):
-            return Pos3D(self.x / value, self.y / value)
+    def __mul__(self, value):
+        if isinstance(value,(int, float)):
+            # Scalar multiplications
+            return Pos3D(self.x * value, self.y * value)
         elif isinstance(value, Pos3D):
-            return Pos3D(self.x / value.x, self.y / value.y)
+            # Convolutional multiplications
+            return Pos3D(self.x * value.x, self.y * value.y)
+    def __truediv__(self, value):
+        try:
+            if isinstance(value, (int, float)):
+                return Pos3D(self.x / value, self.y / value)
+            elif isinstance(value, Pos3D):
+                return Pos3D(self.x / value.x, self.y / value.y)
+        except ZeroDivisionError:
+            return Pos3D(0,0)
     def __pow__(self, value):
         return Pos3D(self.x ** value, self.y ** value)
     # Representations
