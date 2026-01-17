@@ -1,5 +1,6 @@
 # TODO: Entity object with iter overload so you can get its connections
 # TODO: Make an field with id instead of elements and maybe negative for connections
+# NOTE: TBF = To Be FInished!
 from base_structures import Pos, print_field, open_f, CD_OFFS, Pos3D
 from constants import *
 from auxiliary import *
@@ -548,10 +549,12 @@ def _enititify_smile(tokens: list[str]) -> list[Entity]:
 
             if ent_stack:
                 # Connect them both
-                old_ent = ent_stack.pop()
+                if not branching:
+                    old_ent = ent_stack.pop()
+                else:
+                    old_ent = ent_stack[-1]
                 # Maybe a function to connect them both?
                 new_ent.connect(old_ent, curr_type)
-                print(old_ent, curr_type, new_ent)
 
                 curr_type = 1
             ent_stack.append(new_ent)
@@ -562,9 +565,12 @@ def _enititify_smile(tokens: list[str]) -> list[Entity]:
             curr_type = bonds_symbs[curr_s]
         elif curr_s == branch_in:
             branching = True
+        elif curr_s == branch_off:
+            ent_stack.pop()  # Releases last entry
     return ent_list
 
 
+# TBF
 def ent_to_field(ents: list[Entity]):
     print(ents)
     # 1. Put all entities on a 2D Plane, at a square formation
@@ -590,15 +596,16 @@ def ent_to_field(ents: list[Entity]):
     #     coords.append(Pos3D(row * 2, curr_col))
     
     # coords = [Pos3D(rand.random() * len(ents) * 3, rand.random() * len(ents) * 3) for _ in range(len(ents))]
-    coords = [Pos3D((rand.random() - 2) *  1, i) for i in range(len(ents))] # Adds random jitter in one direction
+    coords = [Pos3D(rand.random() * 2, rand.random() * 2) for i in range(len(ents))] # Adds random jitter in one direction
+    coords = [Pos3D(-1,0), Pos3D(0,0), Pos3D(-1,-1), Pos3D(-1,1)]
     # coords = [Pos3D(rand.random() * 10 - 20,rand.random() * 10 - 20) for i in range(len(ents))]
     # coords = [Pos3D()] * len(ents)
     coords_ents = tuple(zip(coords, ents))
-    timestep = 0.1
-    # min_con_len = math.sqrt(2)
-    min_con_len = 1
+    timestep = 1
+    min_con_len = math.sqrt(2)
+    # min_con_len = 1
 
-    for sim_step in range(5):
+    for sim_step in range(100):
         result_forces: list[Pos3D] = [Pos3D()] * len(ents)
         result_dists: list[Pos3D] = [Pos3D()] * len(ents)
         for curr_index, pack_u in enumerate(coords_ents):
@@ -606,25 +613,29 @@ def ent_to_field(ents: list[Entity]):
             # W/ curr_i it should applyt force both ways
             # For now, to follow Newtons third law I'm allowing it to run completely!
             for coord_i, ent_i in coords_ents:
+                if ent_i.id == ent_u.id:
+                    continue
                 # Dual point comparison
                 # Formula for force: F = K * (p_a, p_b) / d²
                 # K = p_a = p_b = 1 for now
                 # W/ +/- K depending if is closer/farther than sqrt(2) from point!
+                # _jitter = Pos3D((rand.random() - 0.5) * 1, (rand.random() - 0.5) * 1)
+
                 _dist: Pos3D = coord_i - coord_u
                 
-                _k = Pos3D(0,0)
+                _k = 0
                 # The force is the _dist vectors
                 if ent_u.is_connected(ent_i):
                     if _dist.length() <= min_con_len:
-                        _k = Pos3D(-1,-1) # Repulsion
+                        _k = -1 # Repulsion
                     else:
-                        _k = Pos3D(1,1) # Attraction
-                elif _dist.length() <= min_con_len:
-                    _k = Pos3D(-1.2,-1.2) # Repulsion (a little tronger to discourage clamping)
-                
-                _force = (_k * timestep / (_dist ** 2))
+                        _k = 1 # Attraction
+                else:
+                    _k = -1 # Repulsion (a little stronger to discourage clamping)
 
-                result_forces[curr_index] += _force
+                _force_scalar = (_k * timestep / (_dist.length() ** 2))
+
+                result_forces[curr_index] += _dist.direction() * _force_scalar
         result_dists = [(_f * timestep) / 2 for _f in result_forces]
         
         # Apply them:
@@ -656,13 +667,14 @@ def ent_to_field(ents: list[Entity]):
                 if CD_OFFS[offs] == _dir:
                     _dir_i = offs
             ent.cons[i_con]._dir = _dir_i
-        print(f"{ent} -> Cons:", ent.cons)
+        print(f"{ent}")
     print(coords)
-    print(tuple(zip(ents, coords_round)))
+    # print(tuple(zip(ents, coords_round)))
     return ents
 
 
 # For ease of use it will be here for now
+# TBF
 def parse_smile(smile_str: str) -> list[Entity]:
     # 1. Identification and creation of atoms
     # Get list of non connected entities

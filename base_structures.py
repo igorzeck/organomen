@@ -44,6 +44,8 @@ class Pos3D:
     # Vectorial
     def length(self):
         return sqrt(self.x ** 2 + self.y ** 2)
+    def direction(self):
+        return Pos3D(self.x / self.length(), self.y / self.length())
     # Math
     def __add__(self, value):
         return Pos3D(self.x + value.x, self.y + value.y)
